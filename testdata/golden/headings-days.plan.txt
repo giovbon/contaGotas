@@ -1,0 +1,7 @@
+# doc: testdata/md/headings.md  mode=finish_by_days  target=56s  min=33s  max=78s
+000  [0..6]  1m13s       218w  A arte de ler devagar  start=0 end=1
+001  [7..13]  56s         172w  A arte de ler devagar › Capítulo 1 — O começo › 1.1 Primeiras páginas  start=1 end=1
+002  [14..19]  1m05s       145w  A arte de ler devagar › Capítulo 1 — O começo › 1.1 Primeiras páginas  start=1 end=0
+003  [20..23]  48s         118w  A arte de ler devagar › Capítulo 2 — O meio › 2.1 Manter o fio  start=0 end=0
+004  [24..27]  38s         114w  A arte de ler devagar › Capítulo 2 — O meio › 2.2 O fim de cada dia  start=0 end=0
+# total: 5 chunks, 4m40s, coverage=ok

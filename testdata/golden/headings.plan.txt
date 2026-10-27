@@ -1,0 +1,4 @@
+# doc: testdata/md/headings.md  mode=minutes_per_day  target=120s  min=72s  max=168s
+000  [0..14]  2m22s       397w  A arte de ler devagar  start=0 end=0
+001  [15..27]  2m18s       370w  A arte de ler devagar › Capítulo 1 — O começo › 1.2 Um exemplo concreto  start=0 end=0
+# total: 2 chunks, 4m40s, coverage=ok
