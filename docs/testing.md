@@ -202,3 +202,9 @@ jobs:
 - [ ] Abrir link do leitor no celular (sem sessão).
 - [ ] Marcar como lido.
 - [ ] Backup + restore em container limpo.
+
+## PDF
+- Testes com build tag `cgo` quando disponível
+- Fixtures em `testdata/pdf/`
+- Golden tests em `internal/docs/pdf/pdf_golden_test.go`
+- PDFs escaneados devem retornar erro `needs_ocr`

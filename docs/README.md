@@ -32,6 +32,7 @@ Sistema self-hosted, single-binary, que transforma arquivos `.md`, `.pdf` e `.ep
 | [`testing.md`](./testing.md) | Estratégia de testes, golden files, fixtures, benchmarks |
 | [`spikes.md`](./spikes.md) | Investigações técnicas com prazo e critério de saída |
 | [`contributing.md`](./contributing.md) | Fluxo de trabalho para humanos e agentes, checklists |
+| [`documentation-pattern.md`](./documentation-pattern.md) | Padrão de documentação adotado (docs-as-code, ADR, contexto para agentes) |
 | [`roadmap.md`](./roadmap.md) | Fases, critérios de saída, status |
 | [`open-questions.md`](./open-questions.md) | Decisões pendentes com ID, impacto e bloqueio |
 | [`changelog.md`](./changelog.md) | Histórico incremental (append-only) |

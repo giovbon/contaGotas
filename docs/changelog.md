@@ -122,3 +122,31 @@ Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. N
 
 **Pendente**
 - SPIKE-01 completo, integração com go-fitz spans/fonte, fixtures PDF, golden tests, fechar FASE-0.
+
+## 2026-10-26 — FASE-0.3 (continuação 3): hifenização, junção de linhas e spike aprimorado
+
+**Adicionado**
+- `internal/docs/pdf/extract_spans.go`: estrutura para extração com spans
+- Funções `desfazerHifenizacao` e `juntarLinhas` seguindo regras de `docs/extraction.md`
+- Spike aprimorado para analisar fontes, imagens, links
+
+**Pendente**
+- SPIKE-01 completo com PDF real, integração ao fluxo, fixtures, golden tests, fechar FASE-0.
+
+## 2026-10-26 — FASE-0.3 (continuação 4): junção avançada e detecção repetidos
+
+**Adicionado**
+- `juntarLinhasComQuebra` e `detectarCabecalhoRodape` seguindo regras de segmentação
+- Melhorias na detecção de headings
+
+**Pendente**
+- SPIKE-01 completo, fixtures PDF, golden tests, integração final, fechar FASE-0.
+
+## 2026-10-26 — FASE-0.3 (continuação 5): golden tests e integração
+
+**Adicionado**
+- `internal/docs/pdf/pdf_golden_test.go` para testes com fixtures PDF
+- Atualizações em `docs/testing.md`
+
+**Pendente**
+- SPIKE-01 completo com PDF real, criar fixtures, integrar detecção de colunas ao fluxo principal, fechar FASE-0.

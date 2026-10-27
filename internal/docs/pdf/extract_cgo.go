@@ -283,3 +283,113 @@ func isRepetido(texto string, contagem map[string]int, totalPaginas int) bool {
 	c := contagem[texto]
 	return c > 0 && float64(c)/float64(totalPaginas) > 0.4
 }
+
+func desfazerHifenizacao(s string) string {
+	// Desfazer hifenização no final da linha: palavra-\npalavra -> palavra-palavra quando segunda começa com minúscula
+	s = regexp.MustCompile(`([a-záàâãéèêíïóôõöúçñ])-\n\s*([a-záàâãéèêíïóôõöúçñ])`).ReplaceAllString(s, "$1$2")
+	s = regexp.MustCompile(`([a-záàâãéèêíïóôõöúçñ])-\r\n\s*([a-záàâãéèêíïóôõöúçñ])`).ReplaceAllString(s, "$1$2")
+	return s
+}
+
+func juntarLinhas(linhas []string, medianLineHeight float64) []string {
+	if len(linhas) == 0 {
+		return nil
+	}
+	var result []string
+	var current strings.Builder
+	current.WriteString(strings.TrimSpace(linhas[0]))
+
+	for i := 1; i < len(linhas); i++ {
+		line := strings.TrimSpace(linhas[i])
+		if line == "" {
+			if current.Len() > 0 {
+				result = append(result, current.String())
+				current.Reset()
+			}
+			continue
+		}
+		// Verificar se é novo parágrafo
+		prev := current.String()
+		if len(prev) > 0 {
+			last := prev[len(prev)-1]
+			// Termina com pontuação final e próxima começa com maiúscula -> novo parágrafo
+			if (last == '.' || last == '!' || last == '?' || last == ':') && len(line) > 0 && line[0] >= 'A' && line[0] <= 'Z' {
+				result = append(result, current.String())
+				current.Reset()
+				current.WriteString(line)
+				continue
+			}
+		}
+		// Continuar parágrafo
+		if current.Len() > 0 && !strings.HasSuffix(prev, " ") {
+			current.WriteString(" ")
+		}
+		current.WriteString(line)
+	}
+	if current.Len() > 0 {
+		result = append(result, current.String())
+	}
+	return result
+}
+
+func detectarCabecalhoRodape(paginas [][]string) map[string]bool {
+	contagem := make(map[string]int)
+	for _, pag := range paginas {
+		// Verificar primeiras e últimas linhas
+		if len(pag) > 0 {
+			if l := normalizePDFText(pag[0]); len(l) < 80 {
+				contagem[l]++
+			}
+		}
+		if len(pag) > 1 {
+			if l := normalizePDFText(pag[len(pag)-1]); len(l) < 80 {
+				contagem[l]++
+			}
+		}
+	}
+	repetidos := make(map[string]bool)
+	total := len(paginas)
+	for k, v := range contagem {
+		if float64(v)/float64(total) > 0.4 {
+			repetidos[k] = true
+		}
+	}
+	return repetidos
+}
+
+func juntarLinhasComQuebra(linhas []string) []string {
+	if len(linhas) == 0 {
+		return nil
+	}
+	var result []string
+	var buf strings.Builder
+	buf.WriteString(strings.TrimSpace(linhas[0]))
+	for i := 1; i < len(linhas); i++ {
+		line := strings.TrimSpace(linhas[i])
+		if line == "" {
+			if buf.Len() > 0 {
+				result = append(result, buf.String())
+				buf.Reset()
+			}
+			continue
+		}
+		prev := buf.String()
+		if len(prev) > 0 {
+			last := prev[len(prev)-1]
+			if (last == '.' || last == '!' || last == '?' || last == ':' || last == ';') && len(line) > 0 && line[0] >= 'A' && line[0] <= 'Z' {
+				result = append(result, prev)
+				buf.Reset()
+				buf.WriteString(line)
+				continue
+			}
+		}
+		if buf.Len() > 0 {
+			buf.WriteString(" ")
+		}
+		buf.WriteString(line)
+	}
+	if buf.Len() > 0 {
+		result = append(result, buf.String())
+	}
+	return result
+}

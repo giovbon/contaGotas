@@ -128,3 +128,9 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 **Incremento 0.3b (em andamento):** extrator PDF MVP (coluna única, HTML/Text via go-fitz, detecção `needs_ocr`, headings por padrão numérico). SPIKE-01 aprimorado com medição de memória.
 
 **Incremento 0.3c (em andamento):** detecção de colunas, detecção de headings por estilo, detecção de cabeçalho/rodapé repetidos.
+
+**Incremento 0.3d (em andamento):** desfazer hifenização, juntar linhas em parágrafos, spike analisando fontes/imagens.
+
+**Incremento 0.3e (em andamento):** junção de linhas com quebra por pontuação, detecção de cabeçalho/rodapé repetidos.
+
+**Incremento 0.3f (em andamento):** golden tests PDF, preparação para integração.
