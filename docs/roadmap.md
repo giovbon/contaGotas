@@ -66,8 +66,10 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] leitor com token assinado + “marcar lido”
 - [x] autenticação por senha + sessão
 - [x] ações de gestão + histórico (1.12)
-- [ ] Dockerfile + imagem arm64
-- [ ] deploy atrás de Cloudflare Tunnel
+- [ ] Dockerfile + imagem arm64 (Dockerfile e healthcheck prontos em 1.13; falta validar o build em ARM64)
+- [ ] deploy atrás de Cloudflare Tunnel (compose e doc prontos em 1.13; falta validar no host)
+
+**Incremento 1.13 (entregue em 2026-10-28, validação pendente):** imagem ARM64 e deploy de referência. `/Dockerfile` multi-stage com cross `gcc-aarch64-linux-gnu` (ou `NATIVE=1` em runner ARM64), `templ generate`, CGO com link estático e runtime distroless non-root; `cmd/app healthcheck` consulta `/readyz` (a imagem não tem shell) e `cmd/app` embute `time/tzdata`. `/compose.yaml` sobe app, `cloudflared` e `ntfy`, com app `read_only`, `/tmp` em tmpfs, volume `/data`, porta só em `127.0.0.1` e `depends_on` por healthcheck; `/deploy/ntfy/server.yml` e `/.env.example` completam o pacote. O build da imagem ainda **não foi executado** (daemon do Docker indisponível); ver [`operations.md`](./operations.md#imagem-dockerfile).
 
 **Incremento 1.12 (concluído em 2026-10-28):** ações de gestão e histórico. `POST /documents/{id}/pause` e `/resume` mudam só `documents.status` com `Documents.TransitionStatus` (origem validada no banco); `POST /documents/{id}/reprocess` reextrai quando não há histórico e restaura o status se a fila recusar; exclusão em duas etapas (`GET` confirmação, `POST /documents/{id}/delete` ou `DELETE /documents/{id}`) remove derivados em cascata e o diretório via `library.Importer.RemoveOriginal`. `GET /history` lista as últimas 30 runs como `Runs.List` (filtro por documento), com itens, tentativas, bytes, erros e latência. Cada ação grava evento `system`. Ver [`web-ui.md`](./web-ui.md#ações-de-gestão-documentsid) e [`data-model.md`](./data-model.md#gestão-de-documentos-2026-10-28).
 
@@ -156,4 +158,4 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## Próximo passo imediato
 
-Fechar a FASE-1 com Dockerfile, imagem ARM64 e deploy atrás do Cloudflare Tunnel. As ações de gestão e o histórico já estão prontos (1.12): pausar/retomar com transição condicional no banco, reprocessar só sem histórico, exclusão confirmada em duas etapas e `/history` com as últimas 30 runs. O leitor com token HMAC (1.11), as configurações de agenda/ntfy e os envios de teste/manual (1.10), o agendador com runs idempotentes (1.9), a entrega com composição e cliente ntfy (1.8), a biblioteca/detalhe/preview/download, o upload, a extração, o plano, a sessão e o entrypoint HTTP também estão implementados. Depois da imagem e do deploy, o próximo trabalho de produto é o aviso de pacing inviável (FASE-2) e as configurações de plano (FASE-3); `SPIKE-04` segue aberto e não bloqueia.
+Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível. Depois da validação, o próximo trabalho de produto é o aviso de pacing inviável (FASE-2) e as configurações de plano (FASE-3); `SPIKE-04` segue aberto e não bloqueia.

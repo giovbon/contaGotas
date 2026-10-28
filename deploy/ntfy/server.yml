@@ -1,0 +1,10 @@
+# Configuração de referência do ntfy self-hosted (docs/operations.md).
+# O app publica em http://ntfy:8080 dentro da rede do compose; o hostname
+# público é roteado pelo Cloudflare Tunnel.
+
+base-url: "https://ntfy.exemplo.com"
+listen-http: ":8080"
+cache-file: "/var/cache/ntfy/cache.db"
+cache-duration: "48h"
+message-size-limit: "64k"
+behind-proxy: true

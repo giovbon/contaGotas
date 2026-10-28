@@ -1,7 +1,7 @@
 ---
 title: Operações
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Operações
@@ -46,88 +46,64 @@ O script usa a porta dedicada **8473**, compila `./cmd/app` com `CGO_ENABLED=1` 
 
 O entrypoint HTTP é `cmd/app`; ele exige `APP_PASSWORD` e `APP_SECRET` (32+ bytes) e cria `{APP_DATA_DIR}/db/app.db` e `{APP_DATA_DIR}/documents`. A CLI headless continua em `cmd/readingdrip` (`plan`, `version`).
 
-## Dockerfile (referência)
+## Imagem (`Dockerfile`)
 
-```dockerfile
-# syntax=docker/dockerfile:1.7
-FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
-ARG TARGETOS TARGETARCH
-WORKDIR /src
+O `/Dockerfile` implementa o [ADR-0008](./adr/0008-build-arm64-distroless.md): build multi-stage com CGO (MuPDF), link estático e runtime `distroless/static-debian12:nonroot`. Os `_templ.go` são gerados no build para impedir que uma view alterada sem regenerar entre na imagem.
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
-    && rm -rf /var/lib/apt/lists/*
+```sh
+# cross-compile ARM64 a partir de amd64 (caminho de referência)
+docker buildx build --platform linux/arm64 -t readingdrip:arm64 .
 
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
+# runner ARM64 nativo (recomendado no CI; dispensa o toolchain de cross)
+docker buildx build --platform linux/arm64 --build-arg NATIVE=1 -t readingdrip:arm64 .
 
-RUN go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate ./internal/web/views
+# com versão na label da imagem
+docker buildx build --platform linux/arm64 --build-arg VERSION=1.0.0 -t readingdrip:1.0.0 .
+```
 
-RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    CC=aarch64-linux-gnu-gcc \
-    go build -trimpath -buildvcs=false -tags "netgo,osusergo" \
-      -ldflags "-s -w -linkmode external -extldflags '-static'" \
-      -o /out/readingdrip ./cmd/app
+Argumentos de build:
 
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/readingdrip /readingdrip
-ENV TZ=America/Sao_Paulo \
-    GOMEMLIMIT=96MiB \
-    GOGC=50 \
-    GOMAXPROCS=2 \
-    APP_DATA_DIR=/data \
-    APP_ADDR=:8080
-VOLUME ["/data"]
-EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD ["/readingdrip", "healthcheck"]
-ENTRYPOINT ["/readingdrip"]
+| Argumento | Padrão | Uso |
+|---|---|---|
+| `GO_VERSION` | `1.27` | tag da imagem `golang` |
+| `NATIVE` | `0` | `1` em runner ARM64 nativo; não instala o gcc de cross |
+| `VERSION` | `dev` | label `org.opencontainers.image.version` |
+
+Verificação depois do build:
+
+```sh
+docker image inspect readingdrip:arm64 --format '{{.Architecture}} {{.Size}}'
+docker run -d --name rd-smoke --platform linux/arm64 \
+  -e APP_PASSWORD=teste -e APP_SECRET="$(head -c 32 /dev/urandom | base64)" \
+  -e APP_BASE_URL=http://localhost:8080 -v "$PWD/data:/data" readingdrip:arm64
+docker inspect --format '{{.State.Health.Status}}' rd-smoke   # healthy
+docker rm -f rd-smoke
 ```
 
 Notas:
-- `-linkmode external -extldflags -static` com `netgo` evita dependência de libc no runtime.
+- `-linkmode external -extldflags '-static'` com `netgo,osusergo` evita dependência de libc no runtime.
 - Preferir **build nativo em runner ARM64** (rápido e sem surpresas de cross). O cross acima é o caminho de referência; validar no CI (`SPIKE-03`).
-- `templ` é pinado em `v0.3.1070`. CSS e JS próprios são embutidos via `go:embed` (`internal/web/assets`), então o build não precisa de Node ([ADR-0014](./adr/0014-ui-css-js-proprios.md)).
-- Não há shell no runtime: healthcheck usa o próprio binário.
+- `cmd/app` importa `time/tzdata` e responde ao subcomando `healthcheck` (consulta `GET /readyz`), porque a imagem não tem shell, `curl` nem `wget`.
+- CSS e JS são embutidos via `go:embed`; o build não precisa de Node ([ADR-0014](./adr/0014-ui-css-js-proprios.md)).
+- O estado do build nesta máquina é **pendente de validação**: o daemon do Docker não está disponível. O cross-compile Go (`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./...`) passa, mas não substitui o build da imagem com CGO.
 
-## Compose de referência
+## Compose (`compose.yaml`)
 
-```yaml
-services:
-  app:
-    image: ghcr.io/<user>/readingdrip:latest
-    restart: unless-stopped
-    read_only: true
-    tmpfs:
-      - /tmp
-    volumes:
-      - ./data:/data
-    environment:
-      APP_BASE_URL: "https://leitura.exemplo.com"
-      APP_PASSWORD: "${APP_PASSWORD}"
-      APP_SECRET: "${APP_SECRET}"          # 32+ bytes aleatórios
-      BEHIND_CLOUDFLARE: "true"
-      MAX_UPLOAD_BYTES: "99614720"          # 95 MiB
-    mem_limit: 256m
-    cpus: "1.5"
-    ports:
-      - "127.0.0.1:8080:8080"
+O `/compose.yaml` sobe `app`, `cloudflared` e `ntfy`; `/deploy/ntfy/server.yml` é a configuração de referência do ntfy e `/.env.example` lista as variáveis. O `.env` fica fora do Git.
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
-    depends_on: [app]
+```sh
+cp .env.example .env          # preencha APP_BASE_URL, APP_PASSWORD, APP_SECRET e CF_TUNNEL_TOKEN
+mkdir -p data deploy/ntfy/cache
+sudo chown -R 65532:65532 data
+docker compose up -d --build
+docker compose ps
+docker compose logs -f app
+```
 
-  ntfy:
-    image: binwiederhier/ntfy:latest
-    restart: unless-stopped
-    command: serve
-    volumes:
-      - ./ntfy/server.yml:/etc/ntfy/server.yml:ro
-      - ./ntfy/cache:/var/cache/ntfy
-    environment:
-      TZ: America/Sao_Paulo
+O app fica em `127.0.0.1:8080` (não exposto na internet) e o `cloudflared` só inicia depois de o healthcheck do app ficar `healthy`. Para usar uma imagem publicada em vez de compilar:
+
+```sh
+RD_IMAGE=ghcr.io/<user>/readingdrip:latest docker compose up -d --no-build
 ```
 
 Permissões no volume (distroless nonroot, uid 65532):
@@ -140,18 +116,19 @@ sudo chown -R 65532:65532 ./data
 
 1. Criar o túnel no dashboard Zero Trust.
 2. Public hostname: `leitura.exemplo.com` → `http://app:8080`.
-3. Copiar o token para `CF_TUNNEL_TOKEN`.
-4. Não abrir portas no firewall.
-5. Em `APP_BASE_URL`, usar sempre `https://`.
+3. Public hostname do ntfy: `ntfy.exemplo.com` → `http://ntfy:8080` (opcional, se for expor o ntfy).
+4. Copiar o token para `CF_TUNNEL_TOKEN` no `.env`.
+5. Não abrir portas no firewall.
+6. Em `APP_BASE_URL`, usar sempre `https://`.
 
 Se usar Cloudflare Access:
 - proteger `/`, `/documents/*`, `/settings`, `/history`;
-- **bypass** em `/r/*`, `/api/actions/*`, `/media/*`, `/healthz`, `/readyz`;
+- **bypass** em `/r/*`, `/api/actions/*`, `/media/*`, `/healthz`, `/readyz` e `/static/*` (senão a tela de login fica sem CSS/JS);
 - ou não usar Access e ficar só com a auth do app (`Q-003`).
 
 ## ntfy
 
-`ntfy/server.yml`:
+O arquivo de referência é [`deploy/ntfy/server.yml`](../deploy/ntfy/server.yml), montado pelo `compose.yaml`:
 
 ```yaml
 base-url: "https://ntfy.exemplo.com"
@@ -162,7 +139,7 @@ message-size-limit: "64k"
 behind-proxy: true
 ```
 
-Publicar `ntfy.exemplo.com` pelo mesmo túnel (hostname separado) ou por outro túnel. O app usa `http://ntfy:8080` internamente.
+Publicar `ntfy.exemplo.com` pelo mesmo túnel (hostname separado) ou por outro túnel. O app usa `http://ntfy:8080` internamente; o cache fica em `deploy/ntfy/cache` (fora do Git).
 
 ## Variáveis de ambiente
 

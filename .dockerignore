@@ -1,0 +1,17 @@
+# Contexto de build: só o necessário para compilar o binário.
+.git
+.gitignore
+bin/
+data/
+.env
+.env.*
+!.env.example
+*.md
+docs/
+testdata/
+deploy/
+run.sh
+Dockerfile
+.dockerignore
+compose.yaml
+compose.yml

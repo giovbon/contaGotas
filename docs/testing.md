@@ -283,6 +283,8 @@ Ações de gestão e histórico:
 - documento deixado em `processing` com original no disco é reenfileirado no start e termina `ready` com plano ativo;
 - upload autenticado multipart percorre o caminho real (login → importação → fila → `ready`) e o detalhe exibe o plano;
 - `documentosPendentes` filtra só `processing` e preserva a ordem da lista.
+- `healthcheckURL` normaliza `APP_ADDR` vazio/`0.0.0.0`/`[::]` para `127.0.0.1`, preserva host e IPv6 explícitos e recusa endereço sem porta.
+- `runHealthcheck` chama `/readyz`, aceita só `200` e devolve erro em `503`, endereço inválido ou `getenv` nulo.
 
 ## Composição da mensagem
 

@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/giovani/readingdrip/internal/auth"
 	"github.com/giovani/readingdrip/internal/ingest"
@@ -32,6 +33,14 @@ const (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := runHealthcheck(os.Getenv, nil); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		slog.Error("readingdrip: falha", "erro", err)
 		os.Exit(1)

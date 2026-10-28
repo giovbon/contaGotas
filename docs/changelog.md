@@ -8,6 +8,31 @@ updated: 2026-10-28
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
 
+## 2026-10-28 — operações: imagem ARM64, healthcheck e deploy de referência
+
+**Adicionado**
+- `/Dockerfile` multi-stage seguindo o [ADR-0008](./adr/0008-build-arm64-distroless.md): `golang:1.27-bookworm` com `gcc-aarch64-linux-gnu` para cross ARM64 (ou `NATIVE=1` em runner ARM64), `templ generate`, `CGO_ENABLED=1` com link estático (`netgo,osusergo`) e runtime `distroless/static-debian12:nonroot`. Argumentos `GO_VERSION`, `NATIVE` e `VERSION`.
+- `healthcheck` como subcomando de `cmd/app` (`/readingdrip healthcheck`): consulta `GET /readyz` em `127.0.0.1:${APP_ADDR}`, com timeout de 2,5 s, e aceita só `200`. Necessário porque a imagem distroless não tem shell, `curl` nem `wget`.
+- `import _ "time/tzdata"` em `cmd/app`, para o fuso da agenda não depender de tzdata do runtime.
+- `/compose.yaml` com `app`, `cloudflared` e `ntfy`: app somente leitura, `tmpfs` em `/tmp`, volume `./data`, `127.0.0.1:8080`, limites de memória/CPU, `depends_on` por healthcheck e `ntfy` lendo `/deploy/ntfy/server.yml`.
+- `/.env.example` com `APP_BASE_URL`, `APP_PASSWORD`, `APP_SECRET`, `CF_TUNNEL_TOKEN` e opcionais `RD_IMAGE`/`RD_VERSION`/`TZ`; `.env` e o cache do ntfy entram no `.gitignore`.
+- `/deploy/ntfy/server.yml` com `message-size-limit: 64k`, cache de 48 h e `behind-proxy`.
+- `/.dockerignore`, limitando o contexto ao necessário para compilar.
+
+**Decisões**
+- O healthcheck é o próprio binário (ADR-0008), não um sidecar ou shell adicionado à imagem.
+- O `compose.yaml` usa `build:` por padrão e aceita `RD_IMAGE` para deploy de imagem publicada; o app não fica exposto fora de `127.0.0.1`.
+- O `cloudflared` espera o app ficar `healthy`, reduzindo 502 no primeiro start.
+- `templ generate` roda no build para impedir imagem com view desatualizada, mesmo com `_templ.go` versionados.
+
+**Validação pendente**
+- O daemon do Docker não está disponível nesta máquina, então o build da imagem e o teste `healthy` em ARM64 não foram executados. O cross-compile Go sem CGO (`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./...`) passa, mas não cobre o link CGO/MuPDF. Passo a passo de verificação em [`operations.md`](./operations.md#imagem-dockerfile).
+
+**Documentação**
+- [`operations.md`](./operations.md) — arquivos reais, comandos de build/compose, healthcheck, ntfy e bypass de `/static/*` no Access.
+- [`testing.md`](./testing.md) — casos de `healthcheckURL` e `runHealthcheck`.
+- [`roadmap.md`](./roadmap.md) — incremento 1.13 e estado da FASE-1; [`context.md`](./context.md) — próximo passo.
+
 ## 2026-10-28 — FASE-1.12: ações de gestão e histórico
 
 **Adicionado**
