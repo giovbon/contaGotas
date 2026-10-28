@@ -1,7 +1,7 @@
 ---
 title: Operações
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Operações
@@ -12,34 +12,45 @@ Build, deploy, backup e diagnóstico. Alvo: uma instância ARM64 atrás de Cloud
 
 | Item | Versão |
 |---|---|
-| Go | 1.24+ |
+| Go | 1.26+ (templ exige) |
 | Docker + buildx | 24+ |
-| templ | CLI via `go run` (pinada) |
-| Node | 22 (apenas build do CSS) |
+| templ | CLI via `go run` (pinada em `v0.3.1070`) |
 | ntfy | self-hosted, `message-size-limit: 64k` |
 | Cloudflare | domínio + tunnel |
 
 ## Build local
 
 ```sh
-go run github.com/a-h/templ/cmd/templ@v0.3.900 generate
-npx @tailwindcss/cli@4 -i web/static/input.css -o web/static/app.css --minify
+# necessário apenas depois de editar arquivos .templ (os _templ.go são versionados)
+go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate ./internal/web/views
+
 CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bin/readingdrip ./cmd/app
-./bin/readingdrip -config ./config.yml
+
+APP_PASSWORD='senha-forte' \
+APP_SECRET="$(head -c 32 /dev/urandom | base64)" \
+APP_DATA_DIR=./data \
+APP_BASE_URL=http://localhost:8080 \
+./bin/readingdrip
 ```
 
-Sem CGO, o binário compila mas retorna erro ao importar PDF (`SPIKE-01`). MD/EPUB funcionam.
+Sem CGO, o binário compila mas retorna erro ao importar PDF. MD/EPUB funcionam.
+
+### Execução local rápida (`run.sh`)
+
+```sh
+./run.sh            # http://localhost:8473
+PORT=9000 ./run.sh  # outra porta
+```
+
+O script usa a porta dedicada **8473**, compila `./cmd/app` com `CGO_ENABLED=1` e guarda dados em `./data`. Na primeira execução gera `APP_PASSWORD` e `APP_SECRET` aleatórios em `.env.local` (chmod 600, fora do Git); as variáveis de ambiente têm prioridade e não são persistidas. `.env.local`, `./data` e `./bin` estão no `.gitignore`. Se a porta estiver ocupada, o script falha antes de compilar e sugere `PORT=...`.
+
+O entrypoint HTTP é `cmd/app`; ele exige `APP_PASSWORD` e `APP_SECRET` (32+ bytes) e cria `{APP_DATA_DIR}/db/app.db` e `{APP_DATA_DIR}/documents`. A CLI headless continua em `cmd/readingdrip` (`plan`, `version`).
 
 ## Dockerfile (referência)
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
-FROM --platform=$BUILDPLATFORM node:22-alpine AS css
-WORKDIR /app
-COPY web/ ./web/
-RUN npx --yes @tailwindcss/cli@4 -i ./web/static/input.css -o ./web/static/app.css --minify
-
-FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
 ARG TARGETOS TARGETARCH
 WORKDIR /src
 
@@ -50,9 +61,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=css /app/web/static/app.css ./web/static/app.css
 
-RUN go run github.com/a-h/templ/cmd/templ@v0.3.900 generate
+RUN go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate ./internal/web/views
 
 RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     CC=aarch64-linux-gnu-gcc \
@@ -77,7 +87,7 @@ ENTRYPOINT ["/readingdrip"]
 Notas:
 - `-linkmode external -extldflags -static` com `netgo` evita dependência de libc no runtime.
 - Preferir **build nativo em runner ARM64** (rápido e sem surpresas de cross). O cross acima é o caminho de referência; validar no CI (`SPIKE-03`).
-- `templ` e Tailwind são pinados. Alpine.js é vendorizado em `web/static/alpine.min.js` (versão + SHA no repositório).
+- `templ` é pinado em `v0.3.1070`. CSS e JS próprios são embutidos via `go:embed` (`internal/web/assets`), então o build não precisa de Node ([ADR-0014](./adr/0014-ui-css-js-proprios.md)).
 - Não há shell no runtime: healthcheck usa o próprio binário.
 
 ## Compose de referência
@@ -171,6 +181,8 @@ Publicar `ntfy.exemplo.com` pelo mesmo túnel (hostname separado) ou por outro t
 | `GOMAXPROCS` | `2` | — |
 | `LOG_LEVEL` | `info` | — |
 
+`APP_SECRET` assina o cookie de sessão `rd_session` e os links do leitor; trocar `APP_SECRET` **ou** `APP_PASSWORD` invalida todas as sessões e links. O rate limit de login fica em memória (5 falhas/min por IP) e zera quando o app reinicia; com `BEHIND_CLOUDFLARE=true`, o IP vem de `CF-Connecting-IP`. Ver [ADR-0013](./adr/0013-sessao-hmac-argon2id.md).
+
 ## Backup
 
 Diário (cron do host ou sidecar):
@@ -218,6 +230,8 @@ Migrações são **forward-only**; downgrade não é suportado.
 | Envio duplicado | restart entre 2xx e commit | aceitável; documentado em `RNF-012` |
 | `database is locked` | backup sem WAL / duas instâncias | usar `VACUUM INTO`; garantir 1 réplica |
 | Link expirado | TTL ou `APP_SECRET` rotacionado | regenerar pelo leitor autenticado |
+| Login 429 | 5 falhas no último minuto | aguardar `Retry-After`; conferir `APP_PASSWORD` |
+| Sessão invalidada | `APP_SECRET`/`APP_PASSWORD` trocados ou cookie expirado | entrar novamente |
 | Hora errada | timezone da agenda | conferir `schedule.timezone` (não `TZ`) |
 
 ## Checklist de segurança

@@ -1,0 +1,104 @@
+package views
+
+templ Detalhe(props DetalheProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>{ props.Doc.Title } — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container" id="status" data-status={ string(props.Doc.Status) } data-status-url={ urlDocumento(props.Doc.ID) }>
+				<nav class="migalha">
+					<a href="/">Biblioteca</a>
+					<span aria-hidden="true">/</span>
+					<span>{ props.Doc.Title }</span>
+				</nav>
+				<div class="cabecalho-doc">
+					<div>
+						<h1>{ props.Doc.Title }</h1>
+						<p class="sub">{ subtituloDocumento(props.Doc) }</p>
+					</div>
+					<span class="badge" data-status={ string(props.Doc.Status) }>{ rotuloStatus(props.Doc.Status) }</span>
+				</div>
+				<div class="acoes-doc">
+					if props.TemOriginal {
+						<a class="botao secundario" href={ urlDownload(props.Doc.ID) }>Baixar original</a>
+					}
+					if podeEnviarAgora(props.Doc, props.Plano) {
+						<form method="post" action={ urlEnviarAgora(props.Doc.ID) }>
+							<button type="submit">Enviar agora</button>
+						</form>
+					}
+				</div>
+				if props.Aviso != "" {
+					<p class="aviso" role="status">{ props.Aviso }</p>
+				}
+				if props.Falha != "" {
+					<p class="alerta" role="alert">{ props.Falha }</p>
+				}
+				if props.Duplicado {
+					<p class="aviso" role="status">Este arquivo já estava na biblioteca; nenhum documento novo foi criado.</p>
+				}
+				if mensagemErro(props.Doc) != "" {
+					<p class="alerta" role="alert">{ mensagemErro(props.Doc) }</p>
+				}
+				if estaProcessando(props.Doc) {
+					<p class="aviso" role="status">Extraindo o conteúdo… A página atualiza quando terminar.</p>
+				}
+				if precisaOCR(props.Doc) {
+					<p class="aviso">Converta o PDF com OCR e envie novamente para gerar o plano.</p>
+				}
+				<section>
+					<h2>Resumo</h2>
+					<dl class="grade-resumo">
+						<div>
+							<dt>Formato</dt>
+							<dd>{ rotuloFormato(props.Doc.Format) }</dd>
+						</div>
+						if props.Doc.TotalWords > 0 {
+							<div>
+								<dt>Palavras</dt>
+								<dd>{ formatarPalavras(props.Doc.TotalWords) }</dd>
+							</div>
+						}
+						if props.Doc.TotalSeconds > 0 {
+							<div>
+								<dt>Tempo de leitura</dt>
+								<dd>{ formatarDuracao(props.Doc.TotalSeconds) }</dd>
+							</div>
+						}
+						<div>
+							<dt>Adicionado</dt>
+							<dd>{ formatarData(props.Doc.CreatedAt) }</dd>
+						</div>
+						if props.Plano != nil {
+							<div>
+								<dt>Plano</dt>
+								<dd>versão { numero(props.Plano.Version) } · { numero(len(props.Plano.Chunks)) } trechos</dd>
+							</div>
+						}
+					</dl>
+				</section>
+				if props.Plano != nil {
+					<section>
+						<div class="cabecalho-pagina">
+							<div>
+								<h2>Plano de leitura</h2>
+								<p class="sub">Prévia sem datas: a agenda entra com o agendador.</p>
+							</div>
+							<a class="botao secundario" href={ urlPlano(props.Doc.ID) }>Ver plano completo</a>
+						</div>
+						@tabelaPlano(*props.Plano)
+					</section>
+				}
+			</main>
+			@rodape()
+			<script src="/static/app.js" defer></script>
+		</body>
+	</html>
+}

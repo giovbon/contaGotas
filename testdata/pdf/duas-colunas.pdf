@@ -1,0 +1,49 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+3 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+5 0 obj
+<< /Length 891 >>
+stream
+BT /F1 9.0 Tf 72.0 800.0 Td (Revista de Leitura - Edicao 1) Tj ET
+BT /F1 9.0 Tf 515.0 40.0 Td (1) Tj ET
+BT /F1 20.0 Tf 72.0 740.0 Td (Colunas e ordem de leitura) Tj ET
+BT /F1 11.0 Tf 72.0 712.0 Td (A primeira coluna comeca aqui e segue) Tj ET
+BT /F1 11.0 Tf 320.0 712.0 Td (A segunda coluna continua o texto com) Tj ET
+BT /F1 11.0 Tf 72.0 697.0 Td (ate o fim da pagina, sem invadir o) Tj ET
+BT /F1 11.0 Tf 320.0 697.0 Td (informacoes complementares sobre o) Tj ET
+BT /F1 11.0 Tf 72.0 682.0 Td (espaco reservado a coluna vizinha.) Tj ET
+BT /F1 11.0 Tf 320.0 682.0 Td (mesmo assunto, em paralelo.) Tj ET
+BT /F1 11.0 Tf 72.0 655.0 Td (Este paragrafo pertence somente a) Tj ET
+BT /F1 11.0 Tf 320.0 655.0 Td (Ja este paragrafo pertence apenas a) Tj ET
+BT /F1 11.0 Tf 72.0 640.0 Td (coluna da esquerda e termina aqui.) Tj ET
+BT /F1 11.0 Tf 320.0 640.0 Td (coluna da direita e termina aqui.) Tj ET
+
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000106 00000 n 
+0000000208 00000 n 
+0000000257 00000 n 
+0000000314 00000 n 
+0000001256 00000 n 
+trailer
+<< /Size 7 /Root 3 0 R >>
+startxref
+1392
+%%EOF

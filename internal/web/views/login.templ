@@ -1,0 +1,29 @@
+package views
+
+templ Login(props LoginProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Entrar — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="pagina-login">
+			<main class="cartao-login">
+				<h1>Reading Drip</h1>
+				<p class="sub">Entre para gerenciar sua biblioteca.</p>
+				if props.Erro != "" {
+					<p class="alerta" role="alert">{ props.Erro }</p>
+				}
+				<form method="post" action="/login" class="form-login">
+					<input type="hidden" name="next" value={ props.Next }/>
+					<label for="senha">Senha</label>
+					<input id="senha" name="senha" type="password" autocomplete="current-password" required autofocus/>
+					<button type="submit">Entrar</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}

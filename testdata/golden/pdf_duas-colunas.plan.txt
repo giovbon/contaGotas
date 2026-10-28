@@ -1,0 +1,4 @@
+# doc: testdata/pdf/duas-colunas.pdf  mode=finish_by_days  target=11s  min=6s  max=15s
+000  [0..2]  13s          36w  Colunas e ordem de leitura  start=0 end=1
+001  [3..4]  9s           27w  Colunas e ordem de leitura  start=1 end=0
+# total: 2 chunks, 22s, coverage=ok

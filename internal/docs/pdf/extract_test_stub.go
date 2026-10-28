@@ -2,16 +2,10 @@
 
 package pdf
 
-import (
-	"io"
-	"testing"
-
-	"github.com/giovani/readingdrip/internal/blocks"
-)
+import "testing"
 
 func TestExtractStub(t *testing.T) {
-	_, err := Extract(nil, 0, "x")
-	if err == nil {
-		t.Fatal("expected error without cgo")
+	if _, err := Extract(nil, 0, "x"); err == nil {
+		t.Fatal("esperado erro sem CGO")
 	}
 }

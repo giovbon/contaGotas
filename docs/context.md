@@ -1,7 +1,7 @@
 ---
 title: Contexto do projeto
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Contexto
@@ -18,7 +18,7 @@ Cada documento tem seu próprio plano e seu próprio ritmo. Vários documentos p
 
 | ID | Decisão | Referência |
 |---|---|---|
-| D-01 | Go + templ + Alpine.js + Tailwind; binário único com assets embutidos | [ADR-0001](./adr/0001-stack-go-templ-alpine-tailwind.md) |
+| D-01 | Go + templ; binário único com assets embutidos. CSS/JS próprios na FASE-1; Alpine/Tailwind adiados | [ADR-0001](./adr/0001-stack-go-templ-alpine-tailwind.md), [ADR-0014](./adr/0014-ui-css-js-proprios.md) |
 | D-02 | Particionamento opera sobre **blocos normalizados**, nunca sobre offsets de texto | [ADR-0002](./adr/0002-modelo-de-blocos-normalizado.md) |
 | D-03 | PDF via `go-fitz` (MuPDF), CGO isolado atrás de build tag | [ADR-0003](./adr/0003-pdf-com-go-fitz-cgo.md) |
 | D-04 | **Plano global persistido** e determinístico (não incremental) | [ADR-0004](./adr/0004-plano-global-persistido.md) |
@@ -49,11 +49,11 @@ Cada documento tem seu próprio plano e seu próprio ritmo. Vários documentos p
 
 | Camada | Escolha |
 |---|---|
-| Linguagem | Go 1.24+ |
+| Linguagem | Go 1.26+ (templ exige) |
 | HTTP | `net/http` (mux nativo) |
 | Views | `templ` (server-side) |
-| Interatividade | Alpine.js (pontual: upload, preview, edição) |
-| CSS | Tailwind (CLI no build, CSS final embutido) |
+| Interatividade | JS próprio (polling de status); Alpine adiado para upload/preview/edição |
+| CSS | próprio, embutido (`go:embed`); Tailwind adiado |
 | Banco | SQLite via `modernc.org/sqlite` (WAL) |
 | PDF | `go-fitz` (MuPDF, CGO) |
 | EPUB | `archive/zip` + `encoding/xml` + `golang.org/x/net/html` |
@@ -87,10 +87,10 @@ Cada documento tem seu próprio plano e seu próprio ritmo. Vários documentos p
 | Item | Estado |
 |---|---|
 | Documentação e decisões | **concluída** (2026-10-26) |
-| Código | **em andamento** — FASE-0.2: `blocks`, `plan`, extratores Markdown/EPUB, CLI e testes |
-| Fase atual | `FASE-0` — núcleo headless ([roadmap](./roadmap.md)) |
-| Próximo marco | `SPIKE-01` + extrator PDF; depois benchmarks |
+| Código | **FASE-1 em andamento** — FASE-0 concluída; store, ingestão, importação, fila, upload, sessão, telas, entrypoint, composição, cliente ntfy, agendador, configurações/entrega manual e leitor por link assinado prontos |
+| Fase atual | `FASE-1` — MVP utilizável; falta configurações de plano, ações de gestão e histórico |
+| Próximo marco | ações de gestão (pausar/retomar/reprocessar/excluir) e histórico na UI; `SPIKE-04` (memória ARM64) segue aberto e não bloqueia a FASE-1 |
 
 ## Próximo passo
 
-Fechar a FASE-0 com `SPIKE-01`, extrator PDF e benchmarks. O plano em Markdown e EPUB já funciona nos dois modos. Ver [`roadmap.md`](./roadmap.md), [`extraction.md`](./extraction.md) e [`segmentation.md`](./segmentation.md).
+Implementar as ações de gestão (pausar/retomar/reprocessar/excluir) e o histórico na UI. O leitor com token assinado (`GET /r/{chunkID}` com HMAC e TTL, “marcar lido” e `Runner.Links`) está pronto: tokens stateless com escopos `r`/`done`, validades em `reader.link_ttl_days`/`reader.done_ttl_days`, página com navegação e seção completa, e o POST responde `204` ao ntfy ou `303` ao formulário. As configurações de agenda/ntfy, o envio de teste e o “enviar agora” (`POST /documents/{id}/send-now`) estão prontos: o formulário valida com `schedule.Parse`, grava em transação e nunca renderiza o token; o envio manual usa a run do dia e roda com uma tentativa, devolvendo o resultado na própria página. O agendador ([`scheduling.md`](./scheduling.md)) lê `schedule.*`/`ntfy.*` do banco, cria runs idempotentes por `run_date`, faz catch-up em dias de leitura, retoma run `running` reenviando só itens `pending` e está ligado ao entrypoint (`cmd/app`). Composição e cliente ntfy estão em [`delivery-ntfy.md`](./delivery-ntfy.md). A autenticação de sessão ([ADR-0013](./adr/0013-sessao-hmac-argon2id.md)), as telas em templ ([ADR-0014](./adr/0014-ui-css-js-proprios.md)) e o entrypoint HTTP (`cmd/app`) também estão prontos; no start ele limpa temporários e reenfileira documentos em `processing`. Importação com hash e original, fila de extração (1 por vez), extração Markdown/EPUB/PDF e plano nos dois modos, revisado com três PDFs reais; o pico de memória de PDF com figuras grandes continua em aberto (`Q-016`, `SPIKE-04`).

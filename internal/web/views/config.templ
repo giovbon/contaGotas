@@ -1,0 +1,144 @@
+package views
+
+templ Configuracoes(props ConfigProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Configurações — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container">
+				<div class="cabecalho-pagina">
+					<div>
+						<h1>Configurações</h1>
+						<p class="sub">Quando entregar e para onde enviar.</p>
+					</div>
+				</div>
+				if props.Salvo {
+					<p class="aviso" role="status">Configurações salvas.</p>
+				}
+				if props.Erro != "" {
+					<p class="alerta" role="alert">{ props.Erro }</p>
+				}
+				if props.Teste != nil {
+					if props.Teste.OK {
+						<p class="aviso" role="status">
+							Teste enviado: HTTP { numero(props.Teste.Status) } · { numero(props.Teste.MS) } ms · { numero(props.Teste.Bytes) } bytes.
+						</p>
+					} else {
+						<p class="alerta" role="alert">Teste falhou: { props.Teste.Motivo }</p>
+					}
+				}
+
+				<form method="post" action="/settings" class="form-config">
+					<section class="cartao">
+						<h2>Agenda</h2>
+						<label class="check">
+							<input type="checkbox" name="agenda_ligada" checked?={ props.Enabled }/>
+							<span>Agendador ligado</span>
+						</label>
+						<fieldset class="dias">
+							<legend>Dias de leitura</legend>
+							for _, d := range DiasDaSemana() {
+								<label class="check">
+									<input type="checkbox" name="dias" value={ d.ID } checked?={ diaSelecionado(props.Dias, d.ID) }/>
+									<span>{ d.Rotulo }</span>
+								</label>
+							}
+						</fieldset>
+						<div class="grade-campos">
+							<div class="campo">
+								<label for="horario">Horário</label>
+								<input id="horario" name="horario" type="time" value={ props.Horario } required/>
+							</div>
+							<div class="campo">
+								<label for="fuso">Fuso horário (IANA)</label>
+								<input id="fuso" name="fuso" value={ props.Fuso } required/>
+								<p class="dica">Ex.: America/Sao_Paulo</p>
+							</div>
+							<div class="campo">
+								<label for="catchup">Catch-up (dias de leitura)</label>
+								<input id="catchup" name="catchup" type="number" min="0" max="30" value={ props.Catchup } required/>
+								<p class="dica">Quantos dias perdidos recuperar.</p>
+							</div>
+							<div class="campo">
+								<label for="max_docs">Documentos por run</label>
+								<input id="max_docs" name="max_docs" type="number" min="1" max="20" value={ props.MaxDocs } required/>
+							</div>
+						</div>
+					</section>
+
+					<section class="cartao">
+						<h2>Entrega (ntfy)</h2>
+						<div class="grade-campos">
+							<div class="campo">
+								<label for="ntfy_url">URL base</label>
+								<input id="ntfy_url" name="ntfy_url" type="url" value={ props.NtfyURL } placeholder="http://ntfy:8080"/>
+							</div>
+							<div class="campo">
+								<label for="ntfy_topico">Tópico</label>
+								<input id="ntfy_topico" name="ntfy_topico" value={ props.NtfyTopico } placeholder="leitura"/>
+							</div>
+							<div class="campo">
+								<label for="ntfy_token">Token (Bearer)</label>
+								<input id="ntfy_token" name="ntfy_token" type="password" value="" autocomplete="new-password" placeholder={ tokenPlaceholder(props.TokenDefinido) }/>
+								<p class="dica">Nunca é exibido. Em branco mantém o token salvo.</p>
+							</div>
+							<div class="campo">
+								<label for="ntfy_prioridade">Prioridade</label>
+								<select id="ntfy_prioridade" name="ntfy_prioridade">
+									for _, p := range []string{"1", "2", "3", "4", "5"} {
+										<option value={ p } selected?={ prioridadeSelecionada(props.Prioridade, p) }>{ p }</option>
+									}
+								</select>
+							</div>
+							<div class="campo">
+								<label for="modo_corpo">Corpo da mensagem</label>
+								<select id="modo_corpo" name="modo_corpo">
+									<option value="full" selected?={ modoSelecionado(props.ModoCorpo, "full") }>Completo</option>
+									<option value="preview" selected?={ modoSelecionado(props.ModoCorpo, "preview") }>Prévia</option>
+								</select>
+							</div>
+							<div class="campo">
+								<label for="max_bytes">Limite do corpo (bytes)</label>
+								<input id="max_bytes" name="max_bytes" type="number" min="1000" value={ props.MaxBytes } required/>
+								<p class="dica">Mínimo 1.000; padrão 60.000.</p>
+							</div>
+						</div>
+						if props.TokenDefinido {
+							<label class="check">
+								<input type="checkbox" name="ntfy_remover_token"/>
+								<span>Remover o token salvo</span>
+							</label>
+						}
+					</section>
+
+					<div class="acoes-form">
+						<button type="submit">Salvar</button>
+					</div>
+				</form>
+
+				<section class="cartao">
+					<h2>Teste de entrega</h2>
+					<form method="post" action="/settings/test" class="form-teste">
+						<button class="botao secundario" type="submit">Enviar teste</button>
+					</form>
+					<p class="dica">Usa a configuração salva, com uma única tentativa.</p>
+				</section>
+			</main>
+			@rodape()
+		</body>
+	</html>
+}
+
+func tokenPlaceholder(definido bool) string {
+	if definido {
+		return "token salvo"
+	}
+	return "sem token"
+}

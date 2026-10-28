@@ -3,49 +3,68 @@
 package pdf
 
 import (
+	"bytes"
+	"flag"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/giovani/readingdrip/internal/blocks"
+	"github.com/giovani/readingdrip/internal/plan"
 )
 
+var update = flag.Bool("update", false, "atualiza golden files")
+
 func TestPDFGolden(t *testing.T) {
-	goldens := []string{
-		"coluna-unica",
-		"duas-colunas",
+	cases := []struct {
+		name string
+		days int
+	}{
+		{"coluna-unica", 2},
+		{"duas-colunas", 2},
 	}
-	for _, name := range goldens {
-		t.Run(name, func(t *testing.T) {
-			pdfPath := filepath.Join("..", "..", "..", "testdata", "pdf", name+".pdf")
-			goldenPath := filepath.Join("..", "..", "..", "testdata", "golden", "pdf_"+name+".plan.txt")
-			if _, err := os.Stat(pdfPath); os.IsNotExist(err) {
-				t.Skipf("fixture %s não encontrada", pdfPath)
-			}
-			f, err := os.Open(pdfPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer f.Close()
-			fi, _ := f.Stat()
-			res, err := Extract(f, fi.Size(), name)
-			if err != nil {
-				// pode ser needs_ocr
-				if strings.Contains(err.Error(), "escaneado") {
-					t.Skip(err.Error())
-				}
-				t.Fatal(err)
-			}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := extrairFixture(t, tc.name)
 			prepared := blocks.Prepare(res.Blocks, blocks.PrepareOptions{
 				Estimator:         blocks.Estimator{WPM: 200, Difficulty: 1.0},
 				MaxParagraphWords: 300,
 			})
-			// Apenas verificar que gerou blocos
-			if len(prepared) == 0 {
-				t.Fatal("sem blocos")
+			params := plan.Params{
+				Mode:         plan.ModeFinishByDays,
+				Days:         tc.days,
+				WPM:          200,
+				Difficulty:   1.0,
+				MinFill:      0.6,
+				MaxOvershoot: 1.4,
 			}
-			_ = goldenPath
+			pl, err := plan.Generate(prepared, params)
+			if err != nil {
+				t.Fatalf("gerar plano: %v", err)
+			}
+
+			var buf bytes.Buffer
+			doc := "testdata/pdf/" + tc.name + ".pdf"
+			if err := plan.Format(&buf, doc, prepared, pl, params); err != nil {
+				t.Fatalf("formatar plano: %v", err)
+			}
+
+			golden := filepath.Join("..", "..", "..", "testdata", "golden", "pdf_"+tc.name+".plan.txt")
+			if *update {
+				if err := os.WriteFile(golden, buf.Bytes(), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+
+			want, err := os.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("golden ausente (rode com -update): %v", err)
+			}
+			if !bytes.Equal(buf.Bytes(), want) {
+				t.Fatalf("golden divergente:\n--- obtido ---\n%s\n--- esperado ---\n%s", buf.String(), string(want))
+			}
 		})
 	}
 }

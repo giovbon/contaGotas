@@ -1,7 +1,7 @@
 ---
 title: Extração
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Extração
@@ -23,6 +23,9 @@ func Extract(src []byte, fallbackTitle string) (*Result, error)
 
 // internal/docs/epub
 func Extract(src []byte, fallbackTitle string) (*Result, error)
+
+// internal/docs/pdf (build tag cgo)
+func Extract(r io.ReaderAt, size int64, fallbackTitle string) (*Result, error)
 
 type markdown.Result struct {
     Title  string
@@ -130,40 +133,93 @@ Ainda não implementado: copiar imagens/capa para `/data/documents/{id}/media/`,
 
 ## PDF (`.pdf`)
 
-Pipeline: `go-fitz` (MuPDF) → por página → HTML/estruturado → normalização → blocos.
+Pipeline: `go-fitz` (MuPDF) → por página → HTML estruturado → linhas com posição → remoção de cabeçalho/rodapé → colunas → parágrafos → blocos.
+
+### API usada (`SPIKE-01`)
+
+- `go-fitz v1.24.14` **não expõe spans crus**. Expõe `Text(page)` e `HTML(page, header)`.
+- O HTML estruturado traz um `<p style="top:...pt;left:...pt;line-height:...pt">` por linha visual, com `font-size` e `font-weight` nos spans. É a fonte de posição e estilo usada pelo extrator.
+- Tudo depende de CGO; sem a tag `cgo` o pacote compila com stub e `Extract` retorna erro claro.
+- A memória em PDF de 300 páginas ainda será medida no `SPIKE-04`.
 
 ### Ordem de leitura e parágrafos
 
-1. Extrair spans com posição, tamanho de fonte e flags de estilo.
-2. Detectar colunas por clustering de `x` (gap horizontal consistente por várias linhas). Se ≥ 2 colunas, ler coluna a coluna.
-3. Ordenar linhas por `(coluna, y)`.
-4. Descartar cabeçalho/rodapé repetidos: linha com texto idêntico em > 40% das páginas, ou número de página isolado no topo/rodapé.
-5. Juntar linhas em parágrafos:
-   - desfazer hifenização (`-\n` + minúscula → concatena);
-   - quebra de parágrafo se o gap vertical > 1,4× a altura média da linha, ou se a linha anterior termina em pontuação final e a próxima começa com maiúscula e há recuo;
+1. Parsear `HTML(page)` com `x/net/html`; cada `<p>` vira uma `Line` com `x`, `y`, `line-height`, tamanho de fonte e negrito.
+2. Descartar as bordas da página (4% de cada lado — marcas d’água, numeração de linha) e cabeçalho/rodapé repetidos: texto idêntico em > 40% das páginas nos 10% superiores/inferiores, ou número de página isolado nessa faixa.
+3. Detectar colunas por clustering de `x`: origens a até 12pt formam o mesmo grupo; grupos separados por menos de 36pt são fundidos (recuo de primeira linha); grupos residuais vão para a coluna mais próxima. Se a página tem título grande (fonte ≥ 1,4× a mediana do corpo), ela é tratada como folha de rosto: o bloco acima da primeira linha do corpo é lido de cima para baixo (título, autores, resumo) e o restante por colunas. Com 3+ grupos fortes, o layout é irregular e a página inteira cai para a ordem por `y`.
+4. Fundir fragmentos da mesma linha visual que o MuPDF emitiu em `<p>` separados (ex.: `3.1` e `Encoder and Decoder Stacks`): `|Δy| ≤ 1pt` e vão horizontal ≤ 120pt.
+5. Ordenar por `(coluna, y)`. Páginas são processadas em ordem; a mudança de coluna dentro da página encerra o parágrafo.
+6. Juntar linhas em parágrafos:
+   - desfazer hifenização (`-` no fim + minúscula → concatena);
+   - quebrar quando o vão vertical > 1,4× a entrelinha mediana, quando o tamanho da fonte muda, quando a coluna/página muda (salvo frase em aberto), ou quando a linha anterior termina em pontuação final e a próxima começa com maiúscula e recuo;
    - remover espaços duplos e soft hyphens (`U+00AD`).
-6. Detectar headings por:
-   - tamanho de fonte ≥ 1,15× a mediana do corpo, **ou**
-   - negrito + linha curta (< 60 caracteres) + padrão de numeração (`^\d+(\.\d+)*\s`, `^Cap[íi]tulo\b`, `^Parte\b`).
-   - nível inferido pela ordem dos tamanhos distintos (maior → h1).
+7. Detectar títulos por:
+   - tamanho de fonte ≥ 1,15× a mediana do corpo **e** (≥ 1,4× **ou** negrito **ou** até 60 caracteres) — blocos de aviso/licença usam a mesma fonte de um título, mas são longos, e não viram título;
+   - negrito + linha curta (< 60 caracteres) + numeração (`^\d+(\.\d+)*\.?\s+\p{Lu}`, `^Cap[íi]tulo\b`, `^Parte\b`) ou caixa alta.
+   Linhas dominadas por números/símbolos (rótulos de tabela como `0.3 300K 4.33`) são descartadas. Tamanhos maiores que o título da primeira página (× 1,05) são tratados como rótulos de figura e não viram título. Tamanhos distintos são agrupados com tolerância de 8% e ranqueados do maior para o menor (maior → h1); títulos só com numeração usam a profundidade (`1.2.3` → h3).
+
+### Validação com PDFs reais (2026-10-27)
+
+Revisão manual de saída da FASE-0 com três artigos do arXiv. Os arquivos ficam fora do repositório (`/tmp/opencode/pdf-review/`) por causa de licença; os testes automatizados usam as fixtures sintéticas de `testdata/pdf/`.
+
+| Documento | Origem | Páginas | Tamanho | Blocos | Títulos | Palavras | Tempo | Pico RSS |
+|---|---|---|---|---|---|---|---|---|
+| Attention Is All You Need | arXiv 1706.03762 | 15 | 2,2 MB | 279 | 33 | 6 066 | 0,8 s | 41 MB |
+| Deep Residual Learning | arXiv 1512.03385 | 12 | 801 KB | 531 | 36 | 9 639 | 0,4 s | 22 MB |
+| Language Models are Few-Shot Learners | arXiv 2005.14165 | 75 | 6,5 MB | 1 518 | 95 | 37 912 | 8,5 s | 325 MB |
+
+Medido em Linux x86_64 (`VmHWM` do processo de teste); ARM64 continua pendente no `SPIKE-04`.
+
+O que a revisão confirmou:
+
+- título do documento extraído do corpo (não da marca d’água do arXiv) nos três casos;
+- corpo em duas colunas na ordem certa, com parágrafos contínuos;
+- títulos numerados que o MuPDF quebra em `<p>` separados (`3.1` + `Encoder and Decoder Stacks`) voltam a ser um único título;
+- cabeçalhos corridos e marcas d’água removidos;
+- hifenização remontada (`sequencealigned` etc.).
+
+O que ainda falha:
+
+- rótulos e eixos dentro de figuras vetoriais vazam como parágrafos soltos (`weight layer`, `relu`, `F(x)`); figuras não são separadas do fluxo de texto;
+- sumário (GPT-3) vira uma sequência de parágrafos longos e alguns títulos com nível errado;
+- grade de autores é lida em ordem aproximada; nomes vizinhos da mesma linha podem ser fundidos;
+- notas de rodapé permanecem no fluxo da página;
+- memória: `doc.HTML` embute as imagens da página como PNG em base64 — que a FASE-0 não usa. O GPT-3 chega a 325 MB de pico por causa disso; reduzir `fitz.MaxStore` para 32 MB baixa para ~229 MB, e `GOGC`/`GOMEMLIMIT` não mudam o pico (a alocação é do lado C). Ver `Q-016`.
+
+### Fallback e falhas
+
+- Página sem HTML estruturado cai para `Text(page)`; documento inteiro sem HTML usa `blocosDeTexto` (parágrafos separados por linha em branco, títulos só por numeração).
+- PDF escaneado: se < 50 caracteres por página em média → `pdf.ErrScanned` (`Q-002`), que o worker traduz para `needs_ocr`.
+- PDF inválido, vazio ou sem blocos → erro descritivo para `documents.error`.
 
 ### Limitações conhecidas
 
-- PDF escaneado (sem texto): se < 5% dos caracteres esperados por página, marcar `needs_ocr` (`Q-002`).
 - Tabelas complexas: preservadas como texto; sem reconstrução de células.
 - Fórmulas matemáticas: texto linearizado.
 - Notas de rodapé na base da página: mantidas no fluxo, ao fim da página.
-- PDFs com layout de revista (3+ colunas, caixas): qualidade degradada — validar com fixture.
+- Figuras: ignoradas nesta fase (`SPIKE-02`); rótulos internos de figuras vetoriais podem virar parágrafos.
+- Sumário/TOC de PDF: não é detectado nem descartado; entra como texto (ver GPT-3 na revisão real).
+- Layouts com 3+ colunas ou caixas: funcionam quando o gutter passa de 36pt; qualidade degradada em layouts irregulares.
+- A ordem de leitura depende das posições do HTML do MuPDF; PDFs com o fluxo de conteúdo fora da ordem visual continuam sendo reordenados pelas colunas.
+- Pico de memória cresce com páginas que têm imagens grandes, porque `HTML()` as embute em base64 (`Q-016`).
 
-### Spike obrigatório (`SPIKE-01`)
+### Implementação
 
-Antes de implementar, confirmar na versão fixada do `go-fitz`:
+| Arquivo | Papel |
+|---|---|
+| `internal/docs/pdf/extract_cgo.go` | cópia para temporário, orquestração, fallback e `needs_ocr` |
+| `internal/docs/pdf/extract_spans.go` | parse do HTML estruturado, remoção de cabeçalho/rodapé |
+| `internal/docs/pdf/col.go` | clustering de colunas e ordenação |
+| `internal/docs/pdf/heading.go` | detecção e nivelamento de títulos |
+| `internal/docs/pdf/blocks.go` | junção de linhas, parágrafos e fallback textual |
 
-- a API que expõe spans com **tamanho de fonte e flags** (HTML/estruturado vs. texto plano);
-- comportamento com `CGO_ENABLED=1` em `linux/arm64` com as libs estáticas do módulo;
-- consumo de memória em PDF de 300 páginas.
+### Despacho por arquivo (FASE-1)
 
-Resultado do spike vai para `open-questions.md` e, se mudar a abordagem, para um ADR.
+`docs.ExtractFile(ctx, path, fallbackTitle)` detecta o formato pela extensão, lê o arquivo e devolve um `docs.Result` comum (`Title`, `Author`, `Language`, `Blocks`). PDF é lido por `ReaderAt` + tamanho; sem CGO o stub devolve erro claro. A CLI e o worker de ingestão usam esse mesmo caminho.
+
+- `pdf.ErrScanned` é uma sentinela comparável com `errors.Is`; o worker usa isso para marcar `needs_ocr` sem comparar strings.
+- O contexto é observado antes da leitura/extração e ao final; cancelamento devolve `context.Canceled` sem marcar o documento como `failed`.
+- Metadados vazios não apagam o que já está no documento: título, autor e idioma só são sobrescritos quando a extração encontra valor.
 
 ## Normalização de texto (todos os formatos)
 
@@ -218,33 +274,9 @@ Fixtures em `testdata/`:
 | `md/oversized.md` | bloco de código maior que `max` | implementado |
 | `md/unicode.md` | acentos, emoji, pontuação tipográfica | planejado |
 | `epub/livro.epub` | spine, metadados, listas, código, tabela, figura, nota | implementado |
-| `pdf/coluna-unica.pdf` | parágrafos, headings por fonte | planejado |
-| `pdf/duas-colunas.pdf` | ordem de leitura | planejado |
-| `pdf/escaneado.pdf` | `needs_ocr` | planejado |
+| `pdf/coluna-unica.pdf` | parágrafos, headings por fonte, hifenização | implementado |
+| `pdf/duas-colunas.pdf` | ordem de leitura em duas colunas | implementado |
+| `pdf/escaneado.pdf` | `needs_ocr` | implementado |
+| `pdf/headings-10pg.pdf` | 20 headings em 10 páginas | implementado |
 
-Fixtures EPUB são geradas por `go run testdata/epub/generate.go`. Os goldens atuais comparam o plano em texto (`testdata/golden/*.plan.txt`); um golden de blocos em JSON fica para a FASE-1.
-
-## PDF (`.pdf`) — implementação FASE-0
-
-### API
-```go
-// internal/docs/pdf
-func Extract(r io.ReaderAt, size int64, fallbackTitle string) (*Result, error)
-```
-Resultado segue o mesmo padrão (`Title`, `Author`, `Language`, `Blocks`). CGO isolado via build tags `cgo`/`!cgo`.
-
-### Pipeline atual (MVP)
-1. Arquivo copiado para temporário (go-fitz requer path).
-2. Heurística de PDF escaneado: se < 50 chars médios por página → erro `needs_ocr` (não suportado na v1).
-3. Por página: tentar `HTML(pageNum)` primeiro; senão `Text(pageNum)`.
-4. HTML: extrair `<p>`, `<h1>..h6>` com `stripTags` + normalização.
-5. Texto: dividir por parágrafos vazios.
-6. Normalização: NFC, remover soft hyphen, desfazer hifenização simples `-\n` + minúscula, colapsar espaços.
-
-### Pendentes (SPIKE-01)
-- Spans com fonte/tamanho/flags para detecção confiável de headings por estilo
-- Detecção de colunas por clustering de `x`
-- Cabeçalho/rodapé repetidos
-- Ordem de leitura correta em duas colunas
-- Consumo de memória em PDF 300 páginas
-- Fixtures `testdata/pdf/coluna-unica.pdf`, `testdata/pdf/duas-colunas.pdf`, `testdata/pdf/escaneado.pdf`
+Fixtures EPUB são geradas por `go run testdata/epub/generate.go`; fixtures PDF, por `go run testdata/pdf/generate.go`. Os goldens atuais comparam o plano em texto (`testdata/golden/*.plan.txt`); um golden de blocos em JSON fica para a FASE-1.

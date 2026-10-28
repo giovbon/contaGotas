@@ -1,7 +1,7 @@
 ---
 title: Continuidade da leitura
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Continuidade
@@ -40,16 +40,19 @@ Regras:
 | Link do leitor | sempre | token assinado |
 | Separador `---` | quando há mais de um documento na mensagem | — |
 
+Em mensagem com um só documento, o cabeçalho é `**{documento}** · {autor}`. Com mais de um documento (run paralela), cada trecho vira uma seção `## 📖 {documento} · {autor}`, separada por `---`, para o leitor pular direto ao livro que interessa (RF-053).
+
 ## Recap extrativo
 
 Sem LLM, determinístico:
 
 1. Pegar o texto do **último bloco de prosa** do chunk anterior (ignorar código, tabela, figura, footnote).
 2. Extrair as **duas últimas frases completas**, respeitando o mesmo divisor de frases do segmentador.
-3. Remover formatação Markdown (ênfase, links viram texto, imagens somem).
+3. Usar o texto já normalizado do bloco (o extrator remove ênfase, links e imagens).
 4. Truncar em 240 caracteres **em fronteira de palavra** e acrescentar `…` se cortado.
-5. Se o resultado tiver menos de 40 caracteres, usar a última frase inteira mesmo que ultrapasse.
-6. Prefixar com `↩︎ **Onde paramos:**`.
+5. Prefixar com `↩︎ **Onde paramos:**`.
+
+Se houver só uma frase, ela é usada sozinha; se não houver prosa, o recap é omitido.
 
 Casos de fallback:
 

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,9 +12,6 @@ import (
 
 	"github.com/giovani/readingdrip/internal/blocks"
 	"github.com/giovani/readingdrip/internal/docs"
-	"github.com/giovani/readingdrip/internal/docs/epub"
-	"github.com/giovani/readingdrip/internal/docs/markdown"
-	"github.com/giovani/readingdrip/internal/docs/pdf"
 	"github.com/giovani/readingdrip/internal/plan"
 )
 
@@ -86,57 +84,17 @@ func runPlan(args []string) int {
 		return 2
 	}
 
-	format, ok := docs.Detect(*input)
-	if !ok {
+	if _, ok := docs.Detect(*input); !ok {
 		fmt.Fprintf(os.Stderr, "erro: formato não suportado: %s\n", filepath.Ext(*input))
 		return 2
 	}
-	src, err := os.ReadFile(*input)
+	fallback := strings.TrimSuffix(filepath.Base(*input), filepath.Ext(*input))
+	res, err := docs.ExtractFile(context.Background(), *input, fallback)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "erro ao ler %s: %v\n", *input, err)
+		fmt.Fprintf(os.Stderr, "erro na extração: %v\n", err)
 		return 1
 	}
-
-	fallback := strings.TrimSuffix(filepath.Base(*input), filepath.Ext(*input))
-	var raw []blocks.Block
-	switch format {
-	case docs.FormatMarkdown:
-		res, err := markdown.Extract(src, fallback)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "erro na extração: %v\n", err)
-			return 1
-		}
-		raw = res.Blocks
-	case docs.FormatEPUB:
-		res, err := epub.Extract(src, fallback)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "erro na extração: %v\n", err)
-			return 1
-		}
-		raw = res.Blocks
-	case docs.FormatPDF:
-		f, err := os.Open(*input)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "erro ao ler %s: %v\n", *input, err)
-			return 1
-		}
-		fi, err := f.Stat()
-		if err != nil {
-			f.Close()
-			fmt.Fprintf(os.Stderr, "erro ao ler %s: %v\n", *input, err)
-			return 1
-		}
-		res, err := pdf.Extract(f, fi.Size(), fallback)
-		f.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "erro na extração: %v\n", err)
-			return 1
-		}
-		raw = res.Blocks
-	default:
-		fmt.Fprintf(os.Stderr, "erro: formato não suportado: %s\n", format)
-		return 2
-	}
+	raw := res.Blocks
 
 	prepared := blocks.Prepare(raw, blocks.PrepareOptions{
 		Estimator:         blocks.Estimator{WPM: *wpm, Difficulty: *difficulty},

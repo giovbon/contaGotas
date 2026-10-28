@@ -1,0 +1,75 @@
+package views
+
+import "github.com/giovani/readingdrip/internal/store"
+
+templ tabelaPlano(plano store.Plan) {
+	<div class="tabela-rolagem">
+		<table class="tabela-plano">
+			<thead>
+				<tr>
+					<th scope="col">#</th>
+					<th scope="col">Seção</th>
+					<th scope="col">Palavras</th>
+					<th scope="col">Tempo</th>
+					<th scope="col">Status</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, c := range plano.Chunks {
+					<tr>
+						<td>{ numero(c.Seq + 1) }</td>
+						<td>{ textoSecao(c.SectionPath) }</td>
+						<td>{ numero(c.Words) }</td>
+						<td>{ formatarDuracao(c.Seconds) }</td>
+						<td>
+							<span class="badge" data-status={ string(c.Status) }>{ rotuloChunk(c.Status) }</span>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ Plano(props DetalheProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Plano — { props.Doc.Title } — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container">
+				<nav class="migalha">
+					<a href="/">Biblioteca</a>
+					<span aria-hidden="true">/</span>
+					<a href={ urlDocumento(props.Doc.ID) }>{ props.Doc.Title }</a>
+					<span aria-hidden="true">/</span>
+					<span>Plano</span>
+				</nav>
+				<div class="cabecalho-pagina">
+					<div>
+						<h1>Plano de leitura</h1>
+						<p class="sub">{ subtituloDocumento(props.Doc) }</p>
+					</div>
+					if props.Plano != nil {
+						<span class="badge">versão { numero(props.Plano.Version) }</span>
+					}
+				</div>
+				if props.Plano == nil {
+					<p class="vazio">Este documento ainda não tem um plano ativo.</p>
+				} else {
+					<p class="sub">
+						{ numero(len(props.Plano.Chunks)) } trechos · prévia sem datas: a agenda entra com o agendador.
+					</p>
+					@tabelaPlano(*props.Plano)
+				}
+			</main>
+			@rodape()
+		</body>
+	</html>
+}

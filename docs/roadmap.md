@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Roadmap
@@ -10,8 +10,8 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 | Fase | Tema | Status |
 |---|---|---|
-| `FASE-0` | Núcleo headless (extração + tempo + segmentador) | em andamento |
-| `FASE-1` | MVP utilizável (upload, plano, ntfy, leitor) | planejado |
+| `FASE-0` | Núcleo headless (extração + tempo + segmentador) | concluído (2026-10-27) |
+| `FASE-1` | MVP utilizável (upload, plano, ntfy, leitor) | em andamento |
 | `FASE-2` | Automação (agendador, histórico, retry) | planejado |
 | `FASE-3` | Refinamento (edição de plano, calibração, PDF) | planejado |
 | `FASE-4` | Operação (imagem ARM64, backup, hardening) | planejado |
@@ -26,15 +26,18 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] estimador de tempo + testes
 - [x] extrator Markdown (goldmark) + golden
 - [x] extrator EPUB + golden
-- [ ] `SPIKE-01`: confirmar API do `go-fitz` para fonte/estilo
-- [ ] extrator PDF (coluna única e duas colunas) + golden
+- [x] `SPIKE-01`: confirmar API do `go-fitz` para fonte/estilo
+- [x] extrator PDF (coluna única e duas colunas) + golden
 - [x] segmentador: modo A e modo B, empacotamento e balanceamento
 - [x] pré-divisão de parágrafo gigante em blocos alinhados a frases
 - [x] `Validate` + testes de propriedade
 - [x] CLI `readingdrip plan --input arquivo --minutes 10` imprimindo o plano
 - [x] benchmarks (`BenchmarkPlan10kBlocks`)
+- [x] revisão manual com 3 PDFs reais (arXiv) e fechamento da fase
 
-**Incremento 0.3 (em andamento):** estrutura para extrator PDF com build tag `cgo`, stubs `!cgo`, spike `cmd/spike-pdf` preparado, CLI aceita `.pdf` (rota para extrator), `github.com/gen2brain/go-fitz` adicionado ao `go.mod`. Pendentes `SPIKE-01` e implementação.
+**Incremento 0.4 (concluído em 2026-10-27):** revisão com três artigos reais do arXiv, ajustes de ordem de leitura em folha de rosto, fusão de títulos quebrados pelo MuPDF, descarte de margens e nivelamento de títulos sem rótulos de figura. Pico de memória medido em x86_64 (`SPIKE-04` parcial, `Q-016`). Ver [`extraction.md`](./extraction.md) e [`changelog.md`](./changelog.md).
+
+**Incremento 0.3 (concluído em 2026-10-27):** extrator PDF completo sobre o HTML estruturado do MuPDF: posição/tamanho por linha, detecção de colunas, remoção de cabeçalho/rodapé, junção de linhas com hifenização, títulos por estilo e fallback textual. Fixtures determinísticas (`coluna-unica`, `duas-colunas`, `escaneado`, `headings-10pg`) e goldens de plano. `SPIKE-01` concluído; ver [`extraction.md`](./extraction.md) e [`spikes.md`](./spikes.md).
 
 **Incremento 0.1 (2026-10-26):** `internal/blocks`, `internal/plan`, `internal/docs/markdown` e `cmd/readingdrip` funcionando; 5 goldens de Markdown (incluindo modo B e bloco oversized); 300 casos de propriedade. Ver [`changelog.md`](./changelog.md).
 
@@ -49,18 +52,43 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## FASE-1 — MVP utilizável
 
-- [ ] SQLite + migrações + repositórios
-- [ ] upload multipart com limite e deduplicação por sha256
-- [ ] worker de extração (1 por vez) + status
-- [ ] persistência de plano e chunks
-- [ ] UI: biblioteca, detalhe, preview do plano
-- [ ] configurações: ntfy, agenda, plano
-- [ ] composição da mensagem (breadcrumb, recap, rodapé)
-- [ ] cliente ntfy + envio de teste + “enviar agora”
-- [ ] leitor com token assinado + “marcar lido”
-- [ ] autenticação por senha + sessão
+- [x] SQLite + migrações + repositórios
+- [x] upload multipart com limite e deduplicação por sha256
+- [x] worker de extração (1 por vez) + status
+- [x] persistência de plano e chunks
+- [x] UI: biblioteca, detalhe, preview do plano
+- [ ] configurações: ntfy, agenda, plano (agenda e ntfy prontos; falta plano)
+- [x] entrypoint HTTP (`cmd/app`) com wiring de config, store, auth, importador e fila
+- [x] composição da mensagem (breadcrumb, recap, rodapé)
+- [x] cliente ntfy com retry (sem envio de teste nem “enviar agora”)
+- [x] agendador in-process + runs idempotentes + catch-up + retomada
+- [x] envio de teste + “enviar agora”
+- [x] leitor com token assinado + “marcar lido”
+- [x] autenticação por senha + sessão
 - [ ] Dockerfile + imagem arm64
 - [ ] deploy atrás de Cloudflare Tunnel
+
+**Incremento 1.11 (concluído em 2026-10-27):** leitor público por link assinado (`GET /r/{chunkID}?t=`), “marcar lido” (`POST /api/actions/chunks/{id}/done?t=`), navegação anterior/próximo e “ver seção completa”. `internal/links` assina tokens stateless `{exp}.{HMAC-SHA256}` com escopos `r`/`done` e chave derivada de `APP_SECRET`; as validades saem de `reader.link_ttl_days` (180) e `reader.done_ttl_days` (30). `Runner.Links` passa a preencher `click` e as ações do ntfy; o teste continua sem link. O POST responde `204` para o ntfy e `303` de volta ao leitor (`ui=1`/`Accept: text/html`). Ver [`web-ui.md`](./web-ui.md#leitor-rchunkid), [`delivery-ntfy.md`](./delivery-ntfy.md#links-assinados) e [`scheduling.md`](./scheduling.md#configuração).
+
+**Incremento 1.10 (concluído em 2026-10-27):** UI de configurações (`GET/POST /settings`), envio de teste (`POST /settings/test`) e envio manual (`POST /documents/{id}/send-now`). O formulário cobre agenda e ntfy, valida com o mesmo `schedule.Parse` do agendador, grava em transação (`Settings.SetMany`) e nunca renderiza o token. O envio de teste e o manual são síncronos, de uma tentativa, e devolvem o resultado por query string (PRG): o manual usa a run do dia, reaproveita run `running` de um tick, recusa run já fechada e descarta a run que ele mesmo criou quando a publicação falha antes de qualquer envio. Ver [`web-ui.md`](./web-ui.md#configurações-settings), [`scheduling.md`](./scheduling.md#envio-manual) e [`delivery-ntfy.md`](./delivery-ntfy.md#envio-de-teste).
+
+**Incremento 1.9 (concluído em 2026-10-27):** agendador em processo com `internal/schedule`: lê `schedule.*` e `ntfy.*` do banco, cria runs idempotentes por `run_date`, respeita dias/horário/fuso, aplica catch-up em dias de leitura e retoma run `running` após restart reenviando só itens `pending`. O tick é serializado por `TryLock` e roda na goroutine do ticker; `Stop` cancela e espera. Falha de publicação mantém o chunk `pending`; item `sent` grava chunk na mesma transação. `cmd/app` inicia e encerra o agendador. Ver [`scheduling.md`](./scheduling.md) e [`delivery-ntfy.md`](./delivery-ntfy.md).
+
+**Incremento 1.8 (concluído em 2026-10-27):** `internal/delivery` com composição pura (`Compose`) e cliente ntfy (`NewClient`/`Publish`). A composição monta cabeçalho, breadcrumb, métricas, recap extrativo (duas frases, ≤ 240 caracteres), heading repetido, corpo `full`/`preview`, rodapé “Amanhã” e link do leitor; agrupa documentos em seções `## 📖 …` e, acima de `max_message_bytes`, gera uma mensagem por documento, truncando em 60% do limite com link. O cliente publica JSON com Bearer opcional, 3 tentativas, backoff 30 s/2 min e `Retry-After` para 429, sem retry em 4xx. Ver [`delivery-ntfy.md`](./delivery-ntfy.md) e [`continuity.md`](./continuity.md).
+
+**Incremento 1.7 (concluído em 2026-10-27):** entrypoint HTTP em `cmd/app`: configuração por ambiente (`internal/platform`), store SQLite, autenticação, importador, fila de extração e `web.Server`. No start, limpa temporários de upload e reenfileira documentos presos em `processing`; no shutdown, para o servidor, drena a fila e fecha o banco. Logs em texto com `LOG_LEVEL`. Ver [`operations.md`](./operations.md).
+
+**Incremento 1.6 (concluído em 2026-10-27):** telas somente leitura em templ: biblioteca (`GET /`), detalhe (`GET /documents/{id}`), preview do plano (`GET /documents/{id}/plan`), download do original (`GET /documents/{id}/download`) e página de erro. CSS/JS próprios embutidos e servidos em `/static/`; polling do status `processing` por recarga da própria página, com JS progressivo. Login migrado de `html/template` para templ. Assets e UI seguem a CSP `script-src 'self'`; Alpine/Tailwind ficam adiados ([ADR-0014](./adr/0014-ui-css-js-proprios.md)). Ver [`web-ui.md`](./web-ui.md).
+
+**Incremento 1.5 (concluído em 2026-10-27):** autenticação de sessão com senha única (`APP_PASSWORD`) conferida por Argon2id, cookie stateless `rd_session` assinado com chave derivada de `APP_SECRET` + senha (7 dias, `HttpOnly`, `SameSite=Lax`, `Secure` em HTTPS), rate limit de 5 falhas/min por IP e rotas `GET/POST /login` + `POST /logout`. Rotas de gestão sem sessão redirecionam para `/login` (RF-074), com `?next=` restrito a caminho local. Página de login mínima em `html/template`, CSP e `Referrer-Policy`. Ver [ADR-0013](./adr/0013-sessao-hmac-argon2id.md) e [`web-ui.md`](./web-ui.md).
+
+**Incremento 1.4 (concluído em 2026-10-27):** `internal/web` com `POST /documents` (multipart em streaming, um ou vários arquivos, dedup, 303/400/413/422), `/healthz` e `/readyz`, cabeçalhos `no-store`/`nosniff` e middleware de sessão injetável (sem middleware → 401). A request não espera extração. Telas, login e demais rotas ficam para os próximos incrementos. Ver [`web-ui.md`](./web-ui.md).
+
+**Incremento 1.3 (concluído em 2026-10-27):** importação de arquivos e fila do worker: `internal/library` valida formato, calcula `sha256` em streaming, aplica limite de 95 MiB, recusa duplicata com o documento existente, grava `{data}/documents/{id}/source.*` e desfaz tudo em falha. `ingest.Queue` processa um documento por vez (buffer 16), drena no shutdown e sobrevive a erro/panic por documento. A rota HTTP multipart fica para o incremento 1.4. Ver [`data-model.md`](./data-model.md) e [`changelog.md`](./changelog.md).
+
+**Incremento 1.2 (concluído em 2026-10-27):** pipeline de ingestão: `docs.ExtractFile` despacha md/epub/pdf para um `Result` comum, PDF escaneado usa a sentinela `pdf.ErrScanned`, e `internal/ingest` extrai, normaliza, gera e persiste blocos + plano ativo + status (`ready`, `failed`, `needs_ocr`) com evento. Reprocessar descarta planos não entregues (`Plans.DiscardUndelivered`) e recusa documentos com histórico de entrega. Ver [`data-model.md`](./data-model.md) e [`changelog.md`](./changelog.md).
+
+**Incremento 1.1 (concluído em 2026-10-27):** `internal/store` com SQLite (`modernc.org/sqlite`), migrações embutidas forward-only, schema completo e repositórios de documentos, blocos, configurações, eventos, planos e chunks. Backup pré-migração fica para o start do app. Ver [`data-model.md`](./data-model.md).
 
 **Saída:** três documentos ativos, envio manual funcionando no celular, leitor abrindo por link sem login, container rodando em ARM64 com < 100 MiB.
 
@@ -123,14 +151,4 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## Próximo passo imediato
 
-`SPIKE-01` e extrator PDF; em seguida benchmarks e revisão manual dos planos. Blocos, segmentador, Markdown, EPUB e o CLI já estão implementados.
-
-**Incremento 0.3b (em andamento):** extrator PDF MVP (coluna única, HTML/Text via go-fitz, detecção `needs_ocr`, headings por padrão numérico). SPIKE-01 aprimorado com medição de memória.
-
-**Incremento 0.3c (em andamento):** detecção de colunas, detecção de headings por estilo, detecção de cabeçalho/rodapé repetidos.
-
-**Incremento 0.3d (em andamento):** desfazer hifenização, juntar linhas em parágrafos, spike analisando fontes/imagens.
-
-**Incremento 0.3e (em andamento):** junção de linhas com quebra por pontuação, detecção de cabeçalho/rodapé repetidos.
-
-**Incremento 0.3f (em andamento):** golden tests PDF, preparação para integração.
+Ações de gestão (pausar/retomar/reprocessar/excluir) e o histórico na UI, depois a imagem ARM64. O leitor com token HMAC (`GET /r/{chunkID}`, “marcar lido” e `Runner.Links`) está pronto (1.11); as configurações de agenda/ntfy, o envio de teste e o “enviar agora” já estão prontos (1.10); o agendador roda in-process com runs idempotentes por `run_date` (1.9) e a entrega tem composição e cliente ntfy próprios (1.8). Biblioteca, detalhe, preview do plano, download, upload, extração, plano, sessão, persistência e entrypoint HTTP também estão implementados. Falta ainda, na FASE-1, a imagem ARM64 e o deploy atrás do Cloudflare Tunnel; as configurações de plano ficam para a FASE-3.

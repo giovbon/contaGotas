@@ -1,0 +1,81 @@
+package views
+
+templ Biblioteca(props BibliotecaProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Biblioteca — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container">
+				<div class="cabecalho-pagina">
+					<div>
+						<h1>Biblioteca</h1>
+						<p class="sub">Seus documentos e o estado de cada extração.</p>
+					</div>
+				</div>
+				if props.Importados > 0 || props.Duplicados > 0 {
+					<div class="aviso" role="status">
+						if props.Importados > 0 {
+							<span>{ pluralArquivos(props.Importados) }</span>
+						}
+						if props.Duplicados > 0 {
+							<span>{ pluralDuplicados(props.Duplicados) }</span>
+						}
+					</div>
+				}
+				if props.Erro != "" {
+					<p class="alerta" role="alert">{ props.Erro }</p>
+				}
+				<section class="envio" id="enviar">
+					<h2>Adicionar documentos</h2>
+					<form method="post" action="/documents" enctype="multipart/form-data" class="form-envio">
+						<label for="arquivos">Arquivos (.md, .epub ou .pdf)</label>
+						<input id="arquivos" name="files" type="file" accept=".md,.markdown,.epub,.pdf" multiple required/>
+						<button type="submit">Enviar</button>
+					</form>
+					<p class="dica">Até 95 MiB por arquivo. A extração acontece em segundo plano.</p>
+				</section>
+				<section>
+					<h2>Seus documentos</h2>
+					if len(props.Documentos) == 0 {
+						<p class="vazio">Nenhum documento ainda. Envie um arquivo para começar.</p>
+					} else {
+						<ul class="lista-documentos">
+							for _, d := range props.Documentos {
+								<li class="documento">
+									<div class="documento-principal">
+										<a class="titulo-doc" href={ urlDocumento(d.ID) }>{ d.Title }</a>
+										<div class="meta">
+											<span class="formato">{ rotuloFormato(d.Format) }</span>
+											<span class="badge" data-status={ string(d.Status) }>{ rotuloStatus(d.Status) }</span>
+											if autor(d) != "" {
+												<span class="autor">{ autor(d) }</span>
+											}
+											if d.TotalWords > 0 {
+												<span>{ formatarPalavras(d.TotalWords) }</span>
+											}
+											if d.TotalSeconds > 0 {
+												<span>{ formatarDuracao(d.TotalSeconds) }</span>
+											}
+										</div>
+									</div>
+									if mensagemErro(d) != "" {
+										<p class="erro-doc">{ mensagemErro(d) }</p>
+									}
+								</li>
+							}
+						</ul>
+					}
+				</section>
+			</main>
+			@rodape()
+			<script src="/static/app.js" defer></script>
+		</body>
+	</html>
+}

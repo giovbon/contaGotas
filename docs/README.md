@@ -27,7 +27,7 @@ Sistema self-hosted, single-binary, que transforma arquivos `.md`, `.pdf` e `.ep
 | [`continuity.md`](./continuity.md) | Como preservar o fio da leitura entre dias |
 | [`delivery-ntfy.md`](./delivery-ntfy.md) | Entrega ntfy self-hosted, payloads, retry, idempotência |
 | [`scheduling.md`](./scheduling.md) | Agendador, fuso/DST, catch-up, paralelismo |
-| [`web-ui.md`](./web-ui.md) | Telas, rotas, componentes templ/Alpine, autenticação |
+| [`web-ui.md`](./web-ui.md) | Telas, rotas, componentes templ, CSS/JS e autenticação |
 | [`operations.md`](./operations.md) | Build ARM64, container, backup, upgrade, troubleshooting |
 | [`testing.md`](./testing.md) | Estratégia de testes, golden files, fixtures, benchmarks |
 | [`spikes.md`](./spikes.md) | Investigações técnicas com prazo e critério de saída |
@@ -133,14 +133,15 @@ Uma entrega só é considerada pronta se:
 
 ```
 docs/                  # esta documentação
+cmd/app/               # entrypoint HTTP (wiring + shutdown)
 cmd/readingdrip/       # CLI headless (FASE-0)
-cmd/app/               # entrypoint HTTP + scheduler (FASE-1)
+cmd/spike-pdf/         # spike de extração PDF
 internal/
   docs/                # detecção + extratores md/epub/pdf
   docs/markdown/       # extrator Markdown
   blocks/              # modelo + tempo de leitura
   plan/                # segmentador (puro, sem I/O)
-  delivery/            # cliente ntfy + orquestração
+  delivery/            # composição da mensagem + cliente ntfy
   schedule/            # ticker, calendário, idempotência
   store/               # SQLite + migrações
   web/                 # handlers, templ, assets embutidos

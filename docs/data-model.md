@@ -1,7 +1,7 @@
 ---
 title: Modelo de dados
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Modelo de dados
@@ -224,6 +224,70 @@ WHERE seq > 0 AND first_block_id <> prev_last + 1;
 - Antes de migrar, o app copia o banco para `/data/backup/pre-migrate-{version}.db` (arquivo + `VACUUM INTO`).
 - Falha na migração aborta o start com log claro; o processo não sobe com schema inconsistente.
 
+### Implementação (2026-10-27)
+
+`store.Open(ctx, path)` cria o diretório se preciso, abre com os PRAGMAs do topo via DSN (`journal_mode`, `synchronous`, `foreign_keys` e `busy_timeout` são por conexão, exceto o journal mode, gravado no arquivo), usa no máximo 4 conexões e aplica as migrações pendentes antes de devolver o `*Store`.
+
+- `internal/store/migrate.go`: lê `migrations/*.sql` com `go:embed`, ordena pelo prefixo numérico, recusa versão duplicada e aplica cada arquivo em uma transação junto com o `INSERT` em `schema_migrations`. Reabrir o banco não reaplica nada.
+- `schema_migrations.applied_at` usa `strftime('%Y-%m-%dT%H:%M:%SZ','now')`; datas de domínio são sempre passadas pelo chamador (sem `time.Now()` no store).
+- Backup pré-migração (`VACUUM INTO`) ainda **não** está implementado; entra junto com o start do app.
+
+### Repositórios (2026-10-27)
+
+Todos em `internal/store`, com SQL restrito ao pacote:
+
+| Repositório | Métodos | Observações |
+|---|---|---|
+| `Store.Documents()` | `Create`, `Get`, `BySHA256`, `List`, `UpdateStatus`, `UpdateTotais`, `SaveExtraction`, `UpdateSource`, `Delete` | `List` ordena por `priority, id`; `Get`/`BySHA256` devolvem `nil` sem erro quando não existem; defaults do schema são aplicados no `Create`; `Delete` remove derivados em transação e devolve `ErrDocumentNotFound` |
+| `Store.Blocks()` | `Replace`, `List`, `Count`, `IDs`, `Between`, `Section` | `Replace` troca o documento inteiro em transação e grava `heading_id` na segunda passada; `List` converte o id do banco de volta para o índice do bloco (`-1` = sem heading); `IDs` serve ao repositório de planos; `Between` recorta o trecho entregue e `Section` devolve a seção do heading ancestral (`HeadingID < 0` = abertura), ambas usadas pelo leitor |
+| `Store.Plans()` | `Create`, `Active`, `Get`, `Versions`, `Chunk`, `NextPending`, `PreviousChunk`, `NextChunk`, `MarkSent`, `MarkSkipped`, `MarkDone`, `Progress`, `HasDeliveryHistory`, `DiscardUndelivered` | `Create` substitui o plano ativo, calcula `version = MAX+1`, valida cobertura e grava os ids reais dos blocos; `MarkSent` só altera chunks `pending` (DB-08); `Chunk` devolve `nil` sem erro quando não existe; os vizinhos servem ao recap/rodapé da dose |
+| `Store.Runs()` | `Create`, `GetByDate`, `Running`, `AddItem`, `ItemByDocument`, `ListItems`, `MarkItemSent`, `MarkItemFailed`, `MarkItemSkipped`, `FinishRun`, `Delete` | `Create` é idempotente por `run_date` (`ON CONFLICT DO NOTHING`) e devolve `criada=false` quando a run já existia; `Running` alimenta a retomada; `ItemByDocument` devolve `nil` sem erro quando o documento não tem item na run; `MarkItemSent` grava item e chunk na mesma transação e devolve `ErrChunkNotPending` sem alterar nada se o chunk já não está `pending`; `MarkItemFailed`/`MarkItemSkipped` só mudam o item; `Delete` remove só run `running` (cascata nos itens) e serve para desfazer uma run manual que falhou antes de enviar |
+| `Store.Settings()` | `Get`, `Set`, `SetMany`, `All` | `Set` faz upsert e grava `updated_at`; `SetMany` grava o lote inteiro em uma transação (ou nada muda) e aceita valor vazio, que equivale a “não configurada” na leitura |
+| `Store.Events()` | `Add`, `List` | `List` devolve do mais recente para o mais antigo; `document_id` é opcional |
+
+`SaveExtraction` grava título/autor/idioma, totais, status e mensagem de erro em uma instrução. Título, autor e idioma vazios preservam o valor atual (a extração não apaga metadado editado); `Error` vazio limpa o erro anterior.
+
+### Reprocessamento (2026-10-27)
+
+Reextrair troca todos os blocos do documento, o que invalida os ids referenciados pelos chunks antigos. O worker consulta `Plans.HasDeliveryHistory` antes de extrair (evita trabalho caro) e chama `Plans.DiscardUndelivered` imediatamente antes de substituir os blocos:
+
+- `HasDeliveryHistory` é verdadeiro se existe chunk fora de `pending` ou qualquer `delivery_items` do documento;
+- havendo histórico, o worker devolve `store.ErrDeliveryHistory` sem alterar nada — o documento continua `ready`;
+- sem histórico, `DiscardUndelivered` apaga `chunks` e `plans` em transação (revalidando a condição) e a nova extração recria o plano a partir da versão 1.
+
+Planos descartados não tinham entrega, então não há histórico a preservar.
+
+Mudar apenas ritmo ou metadados (RF-005/RF-024) não deve reextrair: isso entra com o `Replan` sobre os blocos existentes, preservando os chunks já enviados.
+
+### Entregas (2026-10-27)
+
+`delivery_runs` guarda uma linha por `run_date` local; `delivery_items` guarda a dose de cada documento na run, com no máximo uma por documento (`UNIQUE (run_id, document_id)`). O agendador cria a run com `ON CONFLICT DO NOTHING`; se a linha já existia, não reexecuta nada.
+
+- `status='running'` é o estado inicial e também o de uma run interrompida; `Runs.Running` devolve a mais recente para retomada.
+- `chunks.status` e `delivery_items.status` só avançam juntos em `MarkItemSent`, na mesma transação. `ErrChunkNotPending` aborta o item sem alterar o chunk.
+- Falha de envio deixa o chunk `pending` e o item `failed`; a próxima run tenta o mesmo chunk.
+- Item pulado (`skipped`) registra o motivo em `error` e não move o cursor.
+- Uma mensagem agrupada grava o mesmo `bytes` em cada item que ela levou.
+- O envio manual (`POST /documents/{id}/send-now`) reaproveita a run do dia; se ela não existe, cria com `scheduled_for` = instante do clique e `late=0`. A criação só acontece quando há chunk pendente, para um clique sem conteúdo não consumir a run programada. Se a publicação falhar antes de qualquer envio, a run criada é removida (`Runs.Delete`); runs de ticks anteriores não são tocadas nem fechadas.
+- A run fecha em `sent` (nenhuma falha), `partial` (algumas) ou `failed` (nenhum envio bem-sucedido); `finished_at` e `error` resumem o resultado.
+
+### Importação e arquivos (2026-10-27)
+
+`internal/library.Importer` é o caminho único de entrada de arquivos (a rota `POST /documents` só faz o parse multipart):
+
+1. valida a extensão com `docs.Detect` (`.md`, `.markdown`, `.epub`, `.pdf`);
+2. grava o upload em `{APP_DATA_DIR}/documents/.upload-*` calculando `sha256` em streaming, lendo no máximo `limite + 1` bytes;
+3. recusa vazio (`ErrEmptyFile`) e acima do limite (`TooLargeError`, padrão 95 MiB);
+4. consulta `documents.source_sha256`; se existir, devolve `DuplicateError` com o documento atual (RF-007);
+5. cria a linha em `processing` e move o temporário para `{APP_DATA_DIR}/documents/{id}/source{ext}` (mesmo sistema de arquivos, `rename` atômico);
+6. atualiza `source_name`/`source_path` com `UpdateSource` e enfileira no worker.
+
+Se qualquer passo depois da criação falhar — inclusive o enfileiramento — o documento e derivados são excluídos (`Delete`) e o diretório do original é removido: ou a importação conclui, ou nada fica para trás. Um crash entre a criação e o `rename` deixa o documento em `processing`; `Importer.CleanupTemp` remove os `.upload-*` órfãos e deve ser chamado no start do app.
+
+- O nome original fica em `source_name` (apenas o nome base, sem caminho). No disco, o arquivo é sempre `source{ext}` com a extensão em minúsculas.
+- A resposta do upload não espera a extração: o documento volta em `processing` e a UI faz polling até `ready`/`failed`/`needs_ocr` (RF-002).
+- `Importer.Root` é o diretório de dados; `MaxBytes <= 0` usa `DefaultMaxBytes` (95 MiB).
+
 ## Retenção
 
 | Dado | Política |
@@ -231,7 +295,7 @@ WHERE seq > 0 AND first_block_id <> prev_last + 1;
 | `events` | 90 dias (job diário) |
 | Runs/itens | mantidos; são o histórico de leitura |
 | Planos `superseded` | mantidos enquanto houver `delivery_items` apontando para chunks |
-| Documento excluído | cascata em blocos/planos/chunks/itens + remoção dos arquivos em disco |
+| Documento excluído | cascata em blocos/planos/chunks/itens; o diretório `documents/{id}` é removido pela camada de importação |
 | Originais | nunca removidos automaticamente |
 | Links assinados | stateless (HMAC + expiração); nada a limpar |
 

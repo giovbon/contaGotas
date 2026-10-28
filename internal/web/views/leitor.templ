@@ -1,0 +1,130 @@
+package views
+
+import (
+	"strings"
+
+	"github.com/giovani/readingdrip/internal/store"
+)
+
+templ Leitor(props LeitorProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>{ tituloDoLeitor(props.Chunk, props.Doc) } — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="leitor">
+			<header class="topo leitor-topo">
+				<a class="marca" href="/">Reading Drip</a>
+				<nav class="acoes">
+					<a href={ props.Voltar }>Documento</a>
+				</nav>
+			</header>
+			<main class="container leitor-container">
+				<nav class="migalha" aria-label="Você está em">
+					<a href="/">{ props.Doc.Title }</a>
+					if caminho := textoSecao(props.Chunk.SectionPath); caminho != "—" {
+						<span aria-hidden="true">/</span>
+						<span>{ caminho }</span>
+					}
+				</nav>
+
+				if props.MarcadoAgora {
+					<p class="aviso" role="status">Trecho marcado como lido.</p>
+				}
+				if props.LidoEm != nil {
+					<p class="leitor-lido">Lido em { formatarData(*props.LidoEm) }.</p>
+				}
+
+				<article class="leitura">
+					<header class="leitura-cabecalho">
+						<h1>{ tituloDoLeitor(props.Chunk, props.Doc) }</h1>
+						<p class="sub leitura-metricas">
+							{ numero(props.Chunk.Words) } palavras · { formatarDuracao(props.Chunk.Seconds) } · { numero(props.Percent) }% do livro
+						</p>
+					</header>
+
+					<div class="leitura-corpo">
+						for _, b := range props.Corpo {
+							@templ.Raw(b.HTML)
+						}
+					</div>
+
+					if props.MostrarSecao {
+						<details class="secao-completa">
+							<summary>Ver seção completa</summary>
+							<div class="leitura-corpo secao-corpo">
+								for _, b := range props.Secao {
+									@templ.Raw(b.HTML)
+								}
+							</div>
+						</details>
+					}
+				</article>
+
+				<nav class="leitor-nav" aria-label="Navegação entre trechos">
+					if props.Anterior != nil {
+						<a class="botao secundario" rel="prev" href={ props.Anterior.URL }>← Anterior</a>
+					} else {
+						<span class="botao desabilitado" aria-disabled="true">← Anterior</span>
+					}
+					if props.Proximo != nil {
+						<a class="botao secundario" rel="next" href={ props.Proximo.URL }>Próximo →</a>
+					} else {
+						<span class="botao desabilitado" aria-disabled="true">Próximo →</span>
+					}
+				</nav>
+
+				<div class="leitor-acoes">
+					if props.LidoEm == nil {
+						<form method="post" action={ props.Acao } class="form-lido">
+							<button type="submit">Marcar como lido</button>
+						</form>
+					}
+					<a class="link-voltar" href={ props.Voltar }>Voltar ao documento</a>
+				</div>
+			</main>
+			@rodape()
+		</body>
+	</html>
+}
+
+templ LeitorInvalido() {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Link expirado — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			<header class="topo leitor-topo">
+				<a class="marca" href="/">Reading Drip</a>
+			</header>
+			<main class="container">
+				<div class="cartao-erro">
+					<p class="codigo-erro">401</p>
+					<h1>Este link expirou ou é inválido</h1>
+					<p class="sub">Os links do ntfy têm validade. Peça um novo envio ou abra a biblioteca.</p>
+					<a class="botao" href="/">Ir para a biblioteca</a>
+				</div>
+			</main>
+			@rodape()
+		</body>
+	</html>
+}
+
+// tituloDoLeitor usa a seção atual como título; sem seção, o documento.
+func tituloDoLeitor(c store.Chunk, d store.Document) string {
+	for i := len(c.SectionPath) - 1; i >= 0; i-- {
+		if t := strings.TrimSpace(c.SectionPath[i]); t != "" {
+			return t
+		}
+	}
+	return d.Title
+}

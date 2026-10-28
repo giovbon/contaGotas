@@ -1,0 +1,4 @@
+# Desenvolvimento local
+/bin/
+/data/
+/.env.local

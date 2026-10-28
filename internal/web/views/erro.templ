@@ -1,0 +1,26 @@
+package views
+
+templ ErroPagina(props ErroProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Erro { numero(props.Codigo) } — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container">
+				<div class="cartao-erro">
+					<p class="codigo-erro">{ numero(props.Codigo) }</p>
+					<h1>{ props.Mensagem }</h1>
+					<p class="sub">Volte para a biblioteca e tente novamente.</p>
+					<a class="botao" href="/">Ir para a biblioteca</a>
+				</div>
+			</main>
+			@rodape()
+		</body>
+	</html>
+}

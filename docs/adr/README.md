@@ -24,6 +24,8 @@ Cada decisão estrutural tem um arquivo próprio. ADRs são **imutáveis após a
 | [0010](./0010-cloudflare-dominio-proprio-links-assinados.md) | Cloudflare + domínio próprio + links assinados | aceito |
 | [0011](./0011-paragrafos-longos-em-blocos.md) | Parágrafos longos pré-divididos em blocos | aceito |
 | [0012](./0012-epub-zip-xhtml.md) | EPUB com archive/zip e x/net/html | aceito |
+| [0013](./0013-sessao-hmac-argon2id.md) | Sessão por cookie HMAC e senha única com Argon2id | aceito |
+| [0014](./0014-ui-css-js-proprios.md) | UI da FASE-1 com templ e CSS/JS próprios (Alpine/Tailwind adiados) | aceito |
 
 ## Template
 
