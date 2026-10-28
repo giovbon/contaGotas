@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Roadmap
@@ -12,7 +12,7 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 |---|---|---|
 | `FASE-0` | Núcleo headless (extração + tempo + segmentador) | concluído (2026-10-27) |
 | `FASE-1` | MVP utilizável (upload, plano, ntfy, leitor) | em andamento |
-| `FASE-2` | Automação (agendador, histórico, retry) | planejado |
+| `FASE-2` | Automação (agendador, histórico, retry) | em andamento |
 | `FASE-3` | Refinamento (edição de plano, calibração, PDF) | planejado |
 | `FASE-4` | Operação (imagem ARM64, backup, hardening) | planejado |
 
@@ -65,8 +65,11 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] envio de teste + “enviar agora”
 - [x] leitor com token assinado + “marcar lido”
 - [x] autenticação por senha + sessão
+- [x] ações de gestão + histórico (1.12)
 - [ ] Dockerfile + imagem arm64
 - [ ] deploy atrás de Cloudflare Tunnel
+
+**Incremento 1.12 (concluído em 2026-10-28):** ações de gestão e histórico. `POST /documents/{id}/pause` e `/resume` mudam só `documents.status` com `Documents.TransitionStatus` (origem validada no banco); `POST /documents/{id}/reprocess` reextrai quando não há histórico e restaura o status se a fila recusar; exclusão em duas etapas (`GET` confirmação, `POST /documents/{id}/delete` ou `DELETE /documents/{id}`) remove derivados em cascata e o diretório via `library.Importer.RemoveOriginal`. `GET /history` lista as últimas 30 runs como `Runs.List` (filtro por documento), com itens, tentativas, bytes, erros e latência. Cada ação grava evento `system`. Ver [`web-ui.md`](./web-ui.md#ações-de-gestão-documentsid) e [`data-model.md`](./data-model.md#gestão-de-documentos-2026-10-28).
 
 **Incremento 1.11 (concluído em 2026-10-27):** leitor público por link assinado (`GET /r/{chunkID}?t=`), “marcar lido” (`POST /api/actions/chunks/{id}/done?t=`), navegação anterior/próximo e “ver seção completa”. `internal/links` assina tokens stateless `{exp}.{HMAC-SHA256}` com escopos `r`/`done` e chave derivada de `APP_SECRET`; as validades saem de `reader.link_ttl_days` (180) e `reader.done_ttl_days` (30). `Runner.Links` passa a preencher `click` e as ações do ntfy; o teste continua sem link. O POST responde `204` para o ntfy e `303` de volta ao leitor (`ui=1`/`Accept: text/html`). Ver [`web-ui.md`](./web-ui.md#leitor-rchunkid), [`delivery-ntfy.md`](./delivery-ntfy.md#links-assinados) e [`scheduling.md`](./scheduling.md#configuração).
 
@@ -96,14 +99,16 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## FASE-2 — Automação
 
-- [ ] ticker + calendário + timezone/DST
-- [ ] idempotência por `run_date`
-- [ ] catch-up
-- [ ] lock de run + retomada após restart
-- [ ] retry com backoff e classificação de erro
-- [ ] histórico de runs e itens
-- [ ] pausar/retomar por documento
-- [ ] limite `max_docs_per_run`
+**Adiantado na FASE-1 (2026-10-28):** histórico de runs e pausar/retomar por documento entraram no incremento 1.12, junto das demais ações de gestão. Falta só o aviso de pacing inviável para fechar a fase.
+
+- [x] ticker + calendário + timezone/DST (1.9)
+- [x] idempotência por `run_date` (1.9)
+- [x] catch-up (1.9)
+- [x] lock de run + retomada após restart (1.9)
+- [x] retry com backoff e classificação de erro (1.8)
+- [x] histórico de runs e itens (adiantado em 1.12)
+- [x] pausar/retomar por documento (adiantado em 1.12)
+- [x] limite `max_docs_per_run` (1.9)
 - [ ] avisos de pacing inviável
 
 **Saída:** uma semana inteira de entregas automáticas sem intervenção, incluindo um restart forçado no meio.
@@ -151,4 +156,4 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## Próximo passo imediato
 
-Ações de gestão (pausar/retomar/reprocessar/excluir) e o histórico na UI, depois a imagem ARM64. O leitor com token HMAC (`GET /r/{chunkID}`, “marcar lido” e `Runner.Links`) está pronto (1.11); as configurações de agenda/ntfy, o envio de teste e o “enviar agora” já estão prontos (1.10); o agendador roda in-process com runs idempotentes por `run_date` (1.9) e a entrega tem composição e cliente ntfy próprios (1.8). Biblioteca, detalhe, preview do plano, download, upload, extração, plano, sessão, persistência e entrypoint HTTP também estão implementados. Falta ainda, na FASE-1, a imagem ARM64 e o deploy atrás do Cloudflare Tunnel; as configurações de plano ficam para a FASE-3.
+Fechar a FASE-1 com Dockerfile, imagem ARM64 e deploy atrás do Cloudflare Tunnel. As ações de gestão e o histórico já estão prontos (1.12): pausar/retomar com transição condicional no banco, reprocessar só sem histórico, exclusão confirmada em duas etapas e `/history` com as últimas 30 runs. O leitor com token HMAC (1.11), as configurações de agenda/ntfy e os envios de teste/manual (1.10), o agendador com runs idempotentes (1.9), a entrega com composição e cliente ntfy (1.8), a biblioteca/detalhe/preview/download, o upload, a extração, o plano, a sessão e o entrypoint HTTP também estão implementados. Depois da imagem e do deploy, o próximo trabalho de produto é o aviso de pacing inviável (FASE-2) e as configurações de plano (FASE-3); `SPIKE-04` segue aberto e não bloqueia.

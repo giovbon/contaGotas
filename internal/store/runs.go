@@ -155,6 +155,50 @@ func lerRun(l linha) (*DeliveryRun, error) {
 	return &run, nil
 }
 
+// List devolve as runs mais recentes, da mais nova para a mais antiga. Com
+// documentID > 0, só entram as runs que tiveram item daquele documento. O
+// limite padrão é 30 e o máximo 200, para a página de histórico não crescer
+// sem controle.
+func (r *Runs) List(ctx context.Context, limit int, documentID int64) ([]DeliveryRun, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if documentID < 0 {
+		documentID = 0
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r.id, r.run_date, r.scheduled_for, r.started_at, r.finished_at,
+		       r.status, r.late, r.error
+		FROM delivery_runs r
+		WHERE ? = 0 OR EXISTS (
+			SELECT 1 FROM delivery_items i
+			WHERE i.run_id = r.id AND i.document_id = ?
+		)
+		ORDER BY r.run_date DESC, r.id DESC
+		LIMIT ?`, documentID, documentID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: listar runs: %w", err)
+	}
+	defer rows.Close()
+
+	var out []DeliveryRun
+	for rows.Next() {
+		run, err := lerRun(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: ler run: %w", err)
+		}
+		out = append(out, *run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: listar runs: %w", err)
+	}
+	return out, nil
+}
+
 // Delete remove uma run e, em cascata, seus itens. Serve para desfazer uma run
 // criada por um envio manual que falhou antes de qualquer publicação; não é
 // usada para apagar histórico já entregue.

@@ -29,7 +29,7 @@ func Cabecalho() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"topo\"><a class=\"marca\" href=\"/\">Reading Drip</a><nav class=\"acoes\"><a href=\"/\">Biblioteca</a> <a href=\"/settings\">Configurações</a><form method=\"post\" action=\"/logout\"><button class=\"link\" type=\"submit\">Sair</button></form></nav></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"topo\"><a class=\"marca\" href=\"/\">Reading Drip</a><nav class=\"acoes\"><a href=\"/\">Biblioteca</a> <a href=\"/history\">Histórico</a> <a href=\"/settings\">Configurações</a><form method=\"post\" action=\"/logout\"><button class=\"link\" type=\"submit\">Sair</button></form></nav></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

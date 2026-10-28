@@ -1,7 +1,7 @@
 ---
 title: Modelo de dados
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Modelo de dados
@@ -238,10 +238,10 @@ Todos em `internal/store`, com SQL restrito ao pacote:
 
 | Repositório | Métodos | Observações |
 |---|---|---|
-| `Store.Documents()` | `Create`, `Get`, `BySHA256`, `List`, `UpdateStatus`, `UpdateTotais`, `SaveExtraction`, `UpdateSource`, `Delete` | `List` ordena por `priority, id`; `Get`/`BySHA256` devolvem `nil` sem erro quando não existem; defaults do schema são aplicados no `Create`; `Delete` remove derivados em transação e devolve `ErrDocumentNotFound` |
+| `Store.Documents()` | `Create`, `Get`, `BySHA256`, `List`, `UpdateStatus`, `TransitionStatus`, `UpdateTotais`, `SaveExtraction`, `UpdateSource`, `Delete` | `List` ordena por `priority, id`; `Get`/`BySHA256` devolvem `nil` sem erro quando não existem; defaults do schema são aplicados no `Create`; `TransitionStatus` só muda o status se o atual estiver entre os estados de origem (devolve `false` sem erro caso contrário); `Delete` remove derivados em transação e devolve `ErrDocumentNotFound` |
 | `Store.Blocks()` | `Replace`, `List`, `Count`, `IDs`, `Between`, `Section` | `Replace` troca o documento inteiro em transação e grava `heading_id` na segunda passada; `List` converte o id do banco de volta para o índice do bloco (`-1` = sem heading); `IDs` serve ao repositório de planos; `Between` recorta o trecho entregue e `Section` devolve a seção do heading ancestral (`HeadingID < 0` = abertura), ambas usadas pelo leitor |
 | `Store.Plans()` | `Create`, `Active`, `Get`, `Versions`, `Chunk`, `NextPending`, `PreviousChunk`, `NextChunk`, `MarkSent`, `MarkSkipped`, `MarkDone`, `Progress`, `HasDeliveryHistory`, `DiscardUndelivered` | `Create` substitui o plano ativo, calcula `version = MAX+1`, valida cobertura e grava os ids reais dos blocos; `MarkSent` só altera chunks `pending` (DB-08); `Chunk` devolve `nil` sem erro quando não existe; os vizinhos servem ao recap/rodapé da dose |
-| `Store.Runs()` | `Create`, `GetByDate`, `Running`, `AddItem`, `ItemByDocument`, `ListItems`, `MarkItemSent`, `MarkItemFailed`, `MarkItemSkipped`, `FinishRun`, `Delete` | `Create` é idempotente por `run_date` (`ON CONFLICT DO NOTHING`) e devolve `criada=false` quando a run já existia; `Running` alimenta a retomada; `ItemByDocument` devolve `nil` sem erro quando o documento não tem item na run; `MarkItemSent` grava item e chunk na mesma transação e devolve `ErrChunkNotPending` sem alterar nada se o chunk já não está `pending`; `MarkItemFailed`/`MarkItemSkipped` só mudam o item; `Delete` remove só run `running` (cascata nos itens) e serve para desfazer uma run manual que falhou antes de enviar |
+| `Store.Runs()` | `Create`, `GetByDate`, `Running`, `List`, `AddItem`, `ItemByDocument`, `ListItems`, `MarkItemSent`, `MarkItemFailed`, `MarkItemSkipped`, `FinishRun`, `Delete` | `Create` é idempotente por `run_date` (`ON CONFLICT DO NOTHING`) e devolve `criada=false` quando a run já existia; `Running` alimenta a retomada; `List` devolve as runs mais recentes (padrão 30, máximo 200), opcionalmente só as que tiveram item de um documento; `ItemByDocument` devolve `nil` sem erro quando o documento não tem item na run; `MarkItemSent` grava item e chunk na mesma transação e devolve `ErrChunkNotPending` sem alterar nada se o chunk já não está `pending`; `MarkItemFailed`/`MarkItemSkipped` só mudam o item; `Delete` remove só run `running` (cascata nos itens) e serve para desfazer uma run manual que falhou antes de enviar |
 | `Store.Settings()` | `Get`, `Set`, `SetMany`, `All` | `Set` faz upsert e grava `updated_at`; `SetMany` grava o lote inteiro em uma transação (ou nada muda) e aceita valor vazio, que equivale a “não configurada” na leitura |
 | `Store.Events()` | `Add`, `List` | `List` devolve do mais recente para o mais antigo; `document_id` é opcional |
 
@@ -258,6 +258,23 @@ Reextrair troca todos os blocos do documento, o que invalida os ids referenciado
 Planos descartados não tinham entrega, então não há histórico a preservar.
 
 Mudar apenas ritmo ou metadados (RF-005/RF-024) não deve reextrair: isso entra com o `Replan` sobre os blocos existentes, preservando os chunks já enviados.
+
+### Gestão de documentos (2026-10-28)
+
+As ações da UI trazem a checagem de estado para o banco, para que um clique concorrente com o worker não sobrescreva um estado inesperado:
+
+| Transição | Origem aceita | Efeito |
+|---|---|---|
+| pausar | `ready` | `paused`; a run deixa de selecionar o documento (RF-065) |
+| retomar | `paused` | `ready`; o cursor continua no menor `seq` pendente |
+| reprocessar | `ready`, `failed`, `needs_ocr` | `processing` + `Enqueue`; falha da fila restaura o status anterior |
+| excluir | qualquer | cascata + remoção de `documents/{id}` |
+
+`Documents.TransitionStatus` faz um `UPDATE … WHERE status IN (…)` e devolve `false` quando nenhuma linha mudou; a UI responde `?aviso=indisponivel` em vez de forçar o estado. O reprocessamento **não** aceita documento `paused`, `completed`, em `processing` ou com histórico (`Plans.HasDeliveryHistory`); os dois últimos evitam que a reextração invalide ids de bloco já entregues.
+
+A exclusão remove primeiro o registro (`Documents.Delete`, em transação: itens → chunks → planos → blocos → documento) e depois `documents/{id}` via `library.Importer.RemoveOriginal`. Se o diretório falhar, o documento já saiu e o erro fica só no log. Excluir um documento em `processing` é permitido: a extração em andamento falha na gravação e as FKs impedem dados órfãos.
+
+Cada ação grava um evento `kind='system'` com o id do documento (`documento pausado`, `retomado`, `reenfileirado para reprocessamento`, `excluído`). O histórico (`/history`) é só leitura sobre `delivery_runs`/`delivery_items`; a agregação (enviados, falhas, bytes, latência) é feita na camada web, sem coluna derivada no banco.
 
 ### Entregas (2026-10-27)
 

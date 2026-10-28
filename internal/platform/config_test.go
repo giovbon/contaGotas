@@ -2,6 +2,7 @@ package platform
 
 import (
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -67,8 +68,8 @@ func TestLoadEnvSobrescreve(t *testing.T) {
 	if cfg.LogLevel != slog.LevelDebug {
 		t.Errorf("LogLevel = %v", cfg.LogLevel)
 	}
-	if cfg.DBPath() != "/tmp/dados/db/app.db" {
-		t.Errorf("DBPath = %q", cfg.DBPath())
+	if quer := filepath.Join("/tmp/dados", "db", "app.db"); cfg.DBPath() != quer {
+		t.Errorf("DBPath = %q, quer %q", cfg.DBPath(), quer)
 	}
 }
 

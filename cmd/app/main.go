@@ -185,6 +185,7 @@ func montar(ctx context.Context, cfg platform.Config, logger *slog.Logger) (*apl
 		web: &web.Server{
 			Store:    st,
 			Importer: imp,
+			Queue:    fila,
 			Sessions: sessoes,
 			Sender:   agenda,
 			Links:    assinador,

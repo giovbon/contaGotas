@@ -1,0 +1,42 @@
+package views
+
+templ ConfirmarExclusao(props ExclusaoProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Excluir { tituloDoc(props.Doc) } — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container container-estreito">
+				<nav class="migalha">
+					<a href="/">Biblioteca</a>
+					<span aria-hidden="true">/</span>
+					<a href={ urlDocumento(props.Doc.ID) }>{ tituloDoc(props.Doc) }</a>
+					<span aria-hidden="true">/</span>
+					<span>Excluir</span>
+				</nav>
+				<section class="cartao">
+					<h1>Excluir documento?</h1>
+					<p>
+						<strong>{ tituloDoc(props.Doc) }</strong> será removido da biblioteca
+						com o original, os blocos e o plano. As entregas já feitas continuam
+						no histórico.
+					</p>
+					<p class="dica">Esta ação não pode ser desfeita.</p>
+					<div class="acoes-form">
+						<form method="post" action={ urlExcluir(props.Doc.ID) }>
+							<button class="botao perigo" type="submit">Excluir definitivamente</button>
+						</form>
+						<a class="botao secundario" href={ urlDocumento(props.Doc.ID) }>Cancelar</a>
+					</div>
+				</section>
+			</main>
+			@rodape()
+		</body>
+	</html>
+}

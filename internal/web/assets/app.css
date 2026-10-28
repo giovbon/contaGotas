@@ -655,6 +655,89 @@ section {
 	font-size: 0.9rem;
 }
 
+/* Gestão e histórico */
+
+.botao.perigo {
+	background: var(--erro);
+	border-color: var(--erro);
+	color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+	.botao.perigo {
+		color: #1a1712;
+	}
+}
+
+.container-estreito {
+	width: min(56ch, 100%);
+}
+
+.form-filtro {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.6rem 0.8rem;
+}
+
+.form-filtro label {
+	font-size: 0.85rem;
+	color: var(--suave);
+}
+
+.form-filtro select {
+	font: inherit;
+	color: var(--texto);
+	background: var(--fundo);
+	border: 1px solid var(--borda);
+	border-radius: 8px;
+	padding: 0.5rem 0.6rem;
+	min-width: 12rem;
+}
+
+.run-historico {
+	margin-top: 1rem;
+}
+
+.cabecalho-run {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 0.8rem 1.5rem;
+	margin-bottom: 0.8rem;
+}
+
+.run-metricas {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.8rem 1.4rem;
+	margin: 0;
+}
+
+.run-metricas dt {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--suave);
+}
+
+.run-metricas dd {
+	margin: 0.1rem 0 0;
+	font-weight: 650;
+}
+
+.badge[data-status="running"],
+.badge[data-status="pending"],
+.badge[data-status="late"] {
+	background: var(--alerta-suave);
+	color: var(--alerta);
+}
+
+.badge[data-status="partial"] {
+	background: var(--erro-suave);
+	color: var(--erro);
+}
+
 @media (max-width: 420px) {
 	.leitor-nav {
 		flex-wrap: wrap;

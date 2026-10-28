@@ -1,7 +1,7 @@
 ---
 title: Contexto do projeto
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Contexto
@@ -87,10 +87,10 @@ Cada documento tem seu próprio plano e seu próprio ritmo. Vários documentos p
 | Item | Estado |
 |---|---|
 | Documentação e decisões | **concluída** (2026-10-26) |
-| Código | **FASE-1 em andamento** — FASE-0 concluída; store, ingestão, importação, fila, upload, sessão, telas, entrypoint, composição, cliente ntfy, agendador, configurações/entrega manual e leitor por link assinado prontos |
-| Fase atual | `FASE-1` — MVP utilizável; falta configurações de plano, ações de gestão e histórico |
-| Próximo marco | ações de gestão (pausar/retomar/reprocessar/excluir) e histórico na UI; `SPIKE-04` (memória ARM64) segue aberto e não bloqueia a FASE-1 |
+| Código | **FASE-1 em andamento** — FASE-0 concluída; store, ingestão, importação, fila, upload, sessão, telas, entrypoint, composição, cliente ntfy, agendador, configurações/entrega manual, leitor por link assinado, ações de gestão e histórico prontos |
+| Fase atual | `FASE-1` — MVP utilizável; falta configurações de plano, imagem ARM64 e deploy |
+| Próximo marco | Dockerfile + imagem ARM64 e deploy atrás do Cloudflare Tunnel; `SPIKE-04` (memória ARM64) segue aberto e não bloqueia a FASE-1 |
 
 ## Próximo passo
 
-Implementar as ações de gestão (pausar/retomar/reprocessar/excluir) e o histórico na UI. O leitor com token assinado (`GET /r/{chunkID}` com HMAC e TTL, “marcar lido” e `Runner.Links`) está pronto: tokens stateless com escopos `r`/`done`, validades em `reader.link_ttl_days`/`reader.done_ttl_days`, página com navegação e seção completa, e o POST responde `204` ao ntfy ou `303` ao formulário. As configurações de agenda/ntfy, o envio de teste e o “enviar agora” (`POST /documents/{id}/send-now`) estão prontos: o formulário valida com `schedule.Parse`, grava em transação e nunca renderiza o token; o envio manual usa a run do dia e roda com uma tentativa, devolvendo o resultado na própria página. O agendador ([`scheduling.md`](./scheduling.md)) lê `schedule.*`/`ntfy.*` do banco, cria runs idempotentes por `run_date`, faz catch-up em dias de leitura, retoma run `running` reenviando só itens `pending` e está ligado ao entrypoint (`cmd/app`). Composição e cliente ntfy estão em [`delivery-ntfy.md`](./delivery-ntfy.md). A autenticação de sessão ([ADR-0013](./adr/0013-sessao-hmac-argon2id.md)), as telas em templ ([ADR-0014](./adr/0014-ui-css-js-proprios.md)) e o entrypoint HTTP (`cmd/app`) também estão prontos; no start ele limpa temporários e reenfileira documentos em `processing`. Importação com hash e original, fila de extração (1 por vez), extração Markdown/EPUB/PDF e plano nos dois modos, revisado com três PDFs reais; o pico de memória de PDF com figuras grandes continua em aberto (`Q-016`, `SPIKE-04`).
+Fechar a FASE-1 com a imagem ARM64 (Dockerfile multi-stage, distroless, non-root, read-only; ver [ADR-0008](./adr/0008-build-arm64-distroless.md)) e o deploy atrás do Cloudflare Tunnel ([ADR-0010](./adr/0010-cloudflare-dominio-proprio-links-assinados.md)). As ações de gestão e o histórico estão prontos: `POST /documents/{id}/pause`/`resume` usam transição condicional no banco (`Documents.TransitionStatus`), `POST /documents/{id}/reprocess` reextrai só sem histórico e restaura o status se a fila recusar, a exclusão é confirmada em duas etapas (`GET`/`POST`, mais `DELETE` para API) e `GET /history` lista as últimas 30 runs com filtro por documento e agregados por run. O leitor com token assinado (`GET /r/{chunkID}` com HMAC e TTL, “marcar lido” e `Runner.Links`) está pronto (1.11); as configurações de agenda/ntfy, o envio de teste e o “enviar agora” (1.10), o agendador in-process (1.9) e a composição/cliente ntfy (1.8) também. A autenticação de sessão ([ADR-0013](./adr/0013-sessao-hmac-argon2id.md)), as telas em templ ([ADR-0014](./adr/0014-ui-css-js-proprios.md)), o entrypoint HTTP (`cmd/app`), a importação com hash e original, a fila de extração (1 por vez), a extração Markdown/EPUB/PDF e o plano nos dois modos estão implementados. As configurações de plano ficam para a FASE-3. O pico de memória de PDF com figuras grandes continua em aberto (`Q-016`, `SPIKE-04`).

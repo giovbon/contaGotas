@@ -79,8 +79,12 @@ func checkGolden(t *testing.T, name, docName string, bs []blocks.Block, params p
 	if err != nil {
 		t.Fatalf("golden ausente (rode com -update): %v", err)
 	}
-	if !bytes.Equal(buf.Bytes(), want) {
-		t.Fatalf("golden divergente:\n--- obtido ---\n%s\n--- esperado ---\n%s", buf.String(), string(want))
+	// O checkout com core.autocrlf converte os goldens para CRLF no Windows;
+	// a comparação é de conteúdo, não de fim de linha.
+	got := bytes.ReplaceAll(buf.Bytes(), []byte("\r\n"), []byte("\n"))
+	want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
+	if !bytes.Equal(got, want) {
+		t.Fatalf("golden divergente:\n--- obtido ---\n%s\n--- esperado ---\n%s", got, want)
 	}
 }
 

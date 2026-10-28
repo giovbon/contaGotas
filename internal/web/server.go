@@ -19,10 +19,17 @@ import (
 // autenticação; sem middleware, as rotas de gestão são negadas.
 type Middleware func(http.Handler) http.Handler
 
+// Enqueuer entrega um documento ao worker de extração. *ingest.Queue
+// implementa; a interface evita que o pacote web dependa do worker.
+type Enqueuer interface {
+	Enqueue(ctx context.Context, documentID int64) error
+}
+
 // Server agrega as dependências das rotas.
 type Server struct {
 	Store        *store.Store
 	Importer     *library.Importer
+	Queue        Enqueuer            // nil → reprocessar responde 503
 	Sessions     *auth.Authenticator // nil → usa Auth; sem nenhum, 401 (fail closed)
 	Auth         Middleware          // middleware extra para testes de pass-through
 	Sender       Sender              // nil → envio manual e teste respondem 503
@@ -43,6 +50,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /documents/{id}/plan", s.protegido(http.HandlerFunc(s.handlePlano)))
 	mux.Handle("GET /documents/{id}/download", s.protegido(http.HandlerFunc(s.handleDownload)))
 	mux.Handle("POST /documents/{id}/send-now", s.protegido(http.HandlerFunc(s.handleEnviarAgora)))
+	mux.Handle("POST /documents/{id}/pause", s.protegido(http.HandlerFunc(s.handlePausar)))
+	mux.Handle("POST /documents/{id}/resume", s.protegido(http.HandlerFunc(s.handleRetomar)))
+	mux.Handle("POST /documents/{id}/reprocess", s.protegido(http.HandlerFunc(s.handleReprocessar)))
+	mux.Handle("GET /documents/{id}/delete", s.protegido(http.HandlerFunc(s.handleConfirmarExclusao)))
+	mux.Handle("POST /documents/{id}/delete", s.protegido(http.HandlerFunc(s.handleExcluir)))
+	mux.Handle("DELETE /documents/{id}", s.protegido(http.HandlerFunc(s.handleExcluir)))
+	mux.Handle("GET /history", s.protegido(http.HandlerFunc(s.handleHistorico)))
 	mux.Handle("GET /settings", s.protegido(http.HandlerFunc(s.handleConfiguracoes)))
 	mux.Handle("POST /settings", s.protegido(http.HandlerFunc(s.handleSalvarConfiguracoes)))
 	mux.Handle("POST /settings/test", s.protegido(http.HandlerFunc(s.handleTestarNtfy)))

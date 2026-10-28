@@ -19,13 +19,16 @@ templ Biblioteca(props BibliotecaProps) {
 						<p class="sub">Seus documentos e o estado de cada extração.</p>
 					</div>
 				</div>
-				if props.Importados > 0 || props.Duplicados > 0 {
+				if props.Importados > 0 || props.Duplicados > 0 || props.Excluidos > 0 {
 					<div class="aviso" role="status">
 						if props.Importados > 0 {
 							<span>{ pluralArquivos(props.Importados) }</span>
 						}
 						if props.Duplicados > 0 {
 							<span>{ pluralDuplicados(props.Duplicados) }</span>
+						}
+						if props.Excluidos > 0 {
+							<span>{ pluralExcluidos(props.Excluidos) }</span>
 						}
 					</div>
 				}

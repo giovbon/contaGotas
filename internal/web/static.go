@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 //go:embed assets/app.css assets/app.js
@@ -19,6 +20,14 @@ func staticHandler() http.Handler {
 	arquivos := http.FileServer(http.FS(sub))
 	return http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
+		// Tipo explícito: mime.TypeByExtension varia com o sistema (no Windows
+		// .js vira application/javascript). O contrato da UI é text/javascript.
+		switch {
+		case strings.HasSuffix(r.URL.Path, ".css"):
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		case strings.HasSuffix(r.URL.Path, ".js"):
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		}
 		arquivos.ServeHTTP(w, r)
 	}))
 }

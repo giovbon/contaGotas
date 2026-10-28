@@ -335,3 +335,49 @@ func TestDocumentsDelete(t *testing.T) {
 		t.Fatalf("segunda exclusão = %v, quer ErrDocumentNotFound", err)
 	}
 }
+
+func TestDocumentsTransitionStatus(t *testing.T) {
+	s := abrirTeste(t)
+	ctx := context.Background()
+	id, err := s.Documents().Create(ctx, docExemplo("Transição", "sha-transicao"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mudou, err := s.Documents().TransitionStatus(ctx, id,
+		[]DocumentStatus{StatusProcessing}, StatusReady, agora)
+	if err != nil || !mudou {
+		t.Fatalf("processing→ready = %v, %v", mudou, err)
+	}
+	d, err := s.Documents().Get(ctx, id)
+	if err != nil || d == nil || d.Status != StatusReady {
+		t.Fatalf("documento após transição = %+v, %v", d, err)
+	}
+
+	mudou, err = s.Documents().TransitionStatus(ctx, id,
+		[]DocumentStatus{StatusProcessing}, StatusFailed, agora)
+	if err != nil {
+		t.Fatalf("transição inválida devolveu erro: %v", err)
+	}
+	if mudou {
+		t.Error("estado atual ready não permite a transição de processing")
+	}
+	d, err = s.Documents().Get(ctx, id)
+	if err != nil || d == nil || d.Status != StatusReady {
+		t.Errorf("status mudou sem permissão: %+v, %v", d, err)
+	}
+
+	if _, err := s.Documents().TransitionStatus(ctx, id,
+		[]DocumentStatus{StatusReady}, "inexistente", agora); err == nil {
+		t.Error("esperado erro para status de destino inválido")
+	}
+	if _, err := s.Documents().TransitionStatus(ctx, id, nil, StatusPaused, agora); err == nil {
+		t.Error("esperado erro sem estados de origem")
+	}
+
+	mudou, err = s.Documents().TransitionStatus(ctx, 9999,
+		[]DocumentStatus{StatusReady}, StatusPaused, agora)
+	if err != nil || mudou {
+		t.Errorf("documento inexistente = %v, %v", mudou, err)
+	}
+}

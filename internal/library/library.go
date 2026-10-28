@@ -218,6 +218,23 @@ func (i *Importer) descartar(ctx context.Context, id int64, dir string, causa er
 	return errors.Join(causa, erroDoc, erroArq)
 }
 
+// RemoveOriginal apaga o diretório `{root}/documents/{id}`, que guarda o
+// arquivo original e a capa. Diretório ausente não é erro; o chamador já
+// removeu o registro do documento. A camada web decide quando chamar.
+func (i *Importer) RemoveOriginal(id int64) error {
+	if i.Root == "" {
+		return errors.New("library: importador sem diretório de dados")
+	}
+	if id <= 0 {
+		return fmt.Errorf("library: id de documento inválido para remoção: %d", id)
+	}
+	dir := filepath.Join(i.Root, "documents", strconv.FormatInt(id, 10))
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("library: remover diretório do documento %d: %w", id, err)
+	}
+	return nil
+}
+
 // CleanupTemp remove temporários de uploads interrompidos por crash. Deve ser
 // chamado no start, antes de aceitar novos uploads.
 func (i *Importer) CleanupTemp() error {

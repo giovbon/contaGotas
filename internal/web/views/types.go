@@ -18,6 +18,7 @@ type BibliotecaProps struct {
 	Documentos []store.Document
 	Importados int
 	Duplicados int
+	Excluidos  int
 	Erro       string
 }
 
@@ -85,4 +86,34 @@ type LeitorProps struct {
 type ErroProps struct {
 	Codigo   int
 	Mensagem string
+}
+
+// ExclusaoProps são os dados da confirmação de exclusão de um documento.
+type ExclusaoProps struct {
+	Doc store.Document
+}
+
+// HistoricoItem é a dose de um documento em uma run, já com o título.
+type HistoricoItem struct {
+	Item   store.DeliveryItem
+	Titulo string
+}
+
+// HistoricoRun agrega a run e os itens exibidos no histórico.
+type HistoricoRun struct {
+	Run       store.DeliveryRun
+	Itens     []HistoricoItem
+	Bytes     int
+	Enviados  int
+	Falhas    int
+	Pulados   int
+	Pendentes int
+	Latencia  time.Duration
+}
+
+// HistoricoProps são os dados de /history.
+type HistoricoProps struct {
+	Runs       []HistoricoRun
+	Documentos []store.Document
+	Filtro     int64
 }

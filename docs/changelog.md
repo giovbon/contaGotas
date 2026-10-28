@@ -1,12 +1,36 @@
 ---
 title: Changelog
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Changelog
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
+
+## 2026-10-28 — FASE-1.12: ações de gestão e histórico
+
+**Adicionado**
+- `POST /documents/{id}/pause` e `POST /documents/{id}/resume`: pausam/retomam a entrega sem tocar em plano, chunks ou cursor. A transição acontece no banco com `Documents.TransitionStatus` (origem e destino validados no `UPDATE`), então um tick concorrente não pausa um documento já retomado. Pausar um documento já pausado e retomar um `ready` são no-ops idempotentes; outros estados respondem `?aviso=indisponivel`.
+- `POST /documents/{id}/reprocess`: reextrai `ready`, `failed` ou `needs_ocr` sem histórico de entrega. Recusa `processing` (`?aviso=processando`), `paused` (`?aviso=pausado`) e `completed`, e devolve `?aviso=historico` quando `Plans.HasDeliveryHistory` é verdadeiro. A transição para `processing` é condicional; se `Queue.Enqueue` falhar, o status anterior é restaurado (`UpdateStatus`) para não deixar o documento preso sem worker.
+- Exclusão em duas etapas: `GET /documents/{id}/delete` mostra a confirmação e `POST /documents/{id}/delete` remove o documento; `DELETE /documents/{id}` atende a API e compartilha o mesmo handler. O store apaga derivados em cascata e `library.Importer.RemoveOriginal` remove o diretório do original; falha ao apagar o diretório só gera log, pois o registro já saiu.
+- `GET /history`: últimas 30 runs (`historicoLimite`) com filtro opcional `?documento={id}` (id inválido é ignorado; documento excluído aparece como “Documento removido”). Cada run mostra itens, tentativas, bytes, erros e latência; somas e contadores (enviados/falhas/pulados/pendentes) refletem o filtro ativo. A agregação é feita na camada web, só com leituras de `delivery_runs`/`delivery_items`.
+- `internal/store`: `Documents.TransitionStatus(ctx, id, de, para, at) (bool, error)` e `Runs.List(ctx, limit, documentID)` (limite padrão 30, teto 200, ordenação por `run_date`/`id` decrescente e filtro por documento via `EXISTS` em `delivery_items`).
+- `internal/library`: `Importer.RemoveOriginal(id)`, confinado a `{APP_DATA_DIR}/documents/{id}`.
+- UI: botões pausar/retomar, reprocessar e excluir no detalhe, aviso de documento pausado, página de confirmação de exclusão, link “Histórico” no cabeçalho e aviso `?excluido=1` na biblioteca. Tudo sem JavaScript, compatível com a CSP `script-src 'self'`.
+- Cada ação grava um evento `kind='system'` com o id do documento; falha ao gravar o evento não desfaz a ação.
+
+**Decisões**
+- A transição de status é condicional no banco (não em memória): o handler não corre o risco de sobrescrever uma mudança feita pelo agendador entre a leitura e a escrita.
+- Reprocessar continua proibido com histórico de entrega: os ids de bloco antigos não podem ser reaproveitados (`I-01`, ver `data-model.md#reprocessamento`).
+- A exclusão é irreversível e sempre confirmada; o `DELETE` direto existe para API/automação.
+- O histórico é somente leitura e não guarda corpo de leitura nem token.
+
+**Documentação**
+- [`web-ui.md`](./web-ui.md#ações-de-gestão-documentsid) — rotas, avisos, confirmação de exclusão e página de histórico.
+- [`data-model.md`](./data-model.md#gestão-de-documentos-2026-10-28) — `TransitionStatus`, `Runs.List` e remoção do diretório do original.
+- [`testing.md`](./testing.md) — casos de HTTP, store e importação.
+- [`roadmap.md`](./roadmap.md) — 1.12 concluído, FASE-2 em andamento e próximo passo revisado; [`context.md`](./context.md) — estado atual.
 
 ## 2026-10-27 — FASE-1.11: leitor por link assinado e “marcar lido”
 

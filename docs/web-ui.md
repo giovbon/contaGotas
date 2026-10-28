@@ -1,7 +1,7 @@
 ---
 title: Interface web
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Interface web
@@ -18,10 +18,12 @@ templ no servidor e CSS/JS próprios embutidos no binário ([ADR-0014](./adr/001
 | `POST` | `/logout` | sessão | Encerra |
 | `POST` | `/documents` | sessão | Upload multipart |
 | `GET` | `/documents/{id}` | sessão | Detalhe + status + plano |
-| `DELETE` | `/documents/{id}` | sessão | Exclui |
+| `DELETE` | `/documents/{id}` | sessão | Exclui (API) |
 | `POST` | `/documents/{id}/pause` | sessão | Pausa |
 | `POST` | `/documents/{id}/resume` | sessão | Retoma |
 | `POST` | `/documents/{id}/reprocess` | sessão | Reprocessa |
+| `GET` | `/documents/{id}/delete` | sessão | Confirmação de exclusão |
+| `POST` | `/documents/{id}/delete` | sessão | Exclui (formulário) |
 | `POST` | `/documents/{id}/send-now` | sessão | Envio manual |
 | `GET` | `/documents/{id}/plan` | sessão | Preview do plano |
 | `GET` | `/documents/{id}/download` | sessão | Baixa o original |
@@ -40,7 +42,7 @@ templ no servidor e CSS/JS próprios embutidos no binário ([ADR-0014](./adr/001
 
 Rotas HTML sem sessão precisam de `Cache-Control: no-store` e `X-Robots-Tag: noindex, nofollow`; `/static/` é a exceção pública com cache curto.
 
-### Implementação atual (2026-10-27)
+### Implementação atual (2026-10-28)
 
 Já implementado em `internal/web`:
 
@@ -53,6 +55,11 @@ Já implementado em `internal/web`:
 - `POST /settings` — valida o formulário inteiro com `schedule.Parse` e grava em uma transação; valor inválido não é persistido.
 - `POST /settings/test` — publica a mensagem de teste com a configuração salva (uma tentativa) e volta com status, latência e bytes.
 - `POST /documents/{id}/send-now` — envio manual do próximo trecho, síncrono e de uma tentativa, registrado na run do dia.
+- `POST /documents/{id}/pause` e `POST /documents/{id}/resume` — pausa e retoma sem tocar no plano nem no cursor.
+- `POST /documents/{id}/reprocess` — reextrai o original, recusando documentos com histórico de entrega e documentos em `processing`/`paused`.
+- `GET /documents/{id}/delete` — confirmação de exclusão, sem depender de JavaScript.
+- `POST /documents/{id}/delete` e `DELETE /documents/{id}` — removem documento, derivados e o diretório do original.
+- `GET /history` — últimas 30 runs com itens, bytes, latência, erros e filtro por documento.
 - `GET /r/{chunkID}` — leitor público autenticado por token: corpo do trecho, navegação anterior/próximo, “ver seção completa” e “marcar como lido”.
 - `POST /api/actions/chunks/{id}/done` — marca o trecho como lido; o ntfy recebe `204` e o formulário do leitor volta para a página com `303`.
 - `GET /static/` — CSS e JS embutidos (`app.css`, `app.js`); público, com `Cache-Control: public, max-age=3600`.
@@ -60,7 +67,7 @@ Já implementado em `internal/web`:
 - `GET /healthz` e `GET /readyz` (ping no SQLite), públicas.
 - Cabeçalhos comuns: `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` e CSP `default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
 
-As rotas de ação de gestão (`DELETE`, `pause`, `resume`, `reprocess`, `PATCH /chunks/{id}`, histórico e `/media/*`) ainda não existem. O leitor e a API de ações do ntfy já estão implementados.
+As rotas de edição de plano (`PATCH /chunks/{id}` e `POST /documents/{id}/plan/regenerate`), `/media/*` e as configurações de plano ainda não existem. Leitor, ações do ntfy, gestão de documentos e histórico já estão implementados.
 
 Contrato do upload:
 
@@ -101,9 +108,10 @@ Implementado:
 - lista de documentos com título, autor, formato, palavras, duração e status;
 - badge de status (`processando`, `pronto`, `pausado`, `concluído`, `falhou`, `precisa OCR`);
 - aviso de importação (`?importados=N&duplicados=M`) e de erro de extração;
+- aviso de exclusão (`?excluido=1`);
 - upload multipart clássico (sem drag-and-drop e sem progresso individual).
 
-Ainda não implementado: grade de capas, drag-and-drop com progresso e ações rápidas (pausar, abrir plano, excluir).
+Ainda não implementado: grade de capas, drag-and-drop com progresso e ações rápidas na lista (pausar, abrir plano, excluir).
 
 ### Detalhe (`/documents/{id}`)
 
@@ -113,11 +121,12 @@ Implementado:
 - badge de status, aviso de `processing`, `failed`/`needs_ocr` e aviso de duplicado (`?duplicado=1`);
 - botão “Baixar original” quando o arquivo está sob `{APP_DATA_DIR}/documents`;
 - botão “Enviar agora” quando o documento está `ready` e tem plano ativo;
-- aviso do envio manual (`?enviado=1`, `?aviso=…`) ou a falha de publicação (`?aviso=falha&motivo=…`);
+- ações de gestão: “Pausar” (`ready`), “Retomar” (`paused`), “Reprocessar” (`ready`/`failed`/`needs_ocr`) e “Excluir” (sempre, com confirmação);
+- aviso do envio manual (`?enviado=1`, `?aviso=…`), das ações (`?acao=pausado|retomado|reprocessando`) ou a falha de publicação (`?aviso=falha&motivo=…`);
 - prévia do plano ativo com `seq`, seção, palavras, minutos e status, com link para o preview completo;
 - polling de status: com JS, a própria página é consultada a cada 1,5 s enquanto o status é `processing`; ao mudar, recarrega; desiste após ~3 min. Sem JS, basta recarregar.
 
-Ainda não implementado: edição de metadados e ritmo, “regenerar a partir do cursor”, avisos de `oversized`/`stale` e ações de pausa/exclusão.
+Ainda não implementado: edição de metadados e ritmo, “regenerar a partir do cursor” e avisos de `oversized`/`stale`.
 
 ### Preview do plano (`/documents/{id}/plan`)
 
@@ -127,6 +136,62 @@ Implementado (somente leitura):
 - indicação da versão ativa e mensagem quando ainda não há plano.
 
 Ainda não implementado: paginação/virtualização, expansão para ler o texto do chunk, edição de fronteiras (mesclar/dividir/mover) e simulação de `min_fill`/`max_overshoot`.
+
+### Ações de gestão (`/documents/{id}/…`)
+
+Implementado. As ações mudam só `documents.status` (exceto exclusão e reprocessamento); o plano e o cursor ficam intactos. Cada ação grava um evento `system` e volta por POST/Redirect/GET para o detalhe com `?acao=` ou `?aviso=`.
+
+| Ação | Permitida quando | Efeito |
+|---|---|---|
+| Pausar | `ready` | `paused`; não entra nas próximas runs (RF-065) |
+| Retomar | `paused` | `ready`; continua do menor `seq` pendente |
+| Reprocessar | `ready`, `failed`, `needs_ocr` e sem histórico | `processing` + enfileira a extração |
+| Excluir | qualquer estado | remove documento, derivados e `documents/{id}` |
+
+Contrato de `/documents/{id}/pause`:
+
+| Situação | Resposta |
+|---|---|
+| documento `ready` | `303 · ?acao=pausado` |
+| documento já `paused` | `303 · ?acao=pausado` (idempotente) |
+| outro status | `303 · ?aviso=indisponivel` |
+| documento inexistente | `404` |
+| sem sessão | `303 /login` |
+
+Contrato de `/documents/{id}/resume`:
+
+| Situação | Resposta |
+|---|---|
+| documento `paused` | `303 · ?acao=retomado` |
+| documento já `ready` | `303 · ?acao=retomado` (idempotente) |
+| outro status | `303 · ?aviso=indisponivel` |
+| documento inexistente | `404` |
+| sem sessão | `303 /login` |
+
+Contrato de `/documents/{id}/reprocess`:
+
+| Situação | Resposta |
+|---|---|
+| `ready`/`failed`/`needs_ocr` sem histórico, fila aceita | `303 · ?acao=reprocessando` |
+| documento com chunk fora de `pending` ou item de entrega | `303 · ?aviso=historico` (nada muda) |
+| documento `processing` | `303 · ?aviso=processando` |
+| documento `paused` | `303 · ?aviso=pausado` |
+| documento `completed` | `303 · ?aviso=historico` (todo chunk enviado) |
+| fila indisponível | `503` |
+| falha ao enfileirar | `500` e status anterior restaurado |
+| sem sessão | `303 /login` |
+
+Contrato de exclusão:
+
+| Situação | Resposta |
+|---|---|
+| `GET /documents/{id}/delete` | `200` com a confirmação (“Excluir documento?”) |
+| `POST /documents/{id}/delete` ou `DELETE /documents/{id}` | `303 /?excluido=1` |
+| documento inexistente | `404` |
+| falha ao apagar o diretório | registro já removido; `200`/`303` mantido e aviso só no log |
+| sem sessão | `303 /login` |
+
+O formulário de confirmação evita exclusão acidental sem JavaScript (a CSP proíbe script inline). A API usa o mesmo handler, então o comportamento é idêntico. Documentos em `processing` podem ser excluídos; a extração em andamento falha ao gravar e apenas registra o erro no log — não há dados órfãos porque as FKs barram blocos/planos novos.
 
 ### Leitor (`/r/{chunkID}`)
 
@@ -220,9 +285,17 @@ O envio manual é síncrono e de **uma tentativa** (`envioTimeout` de 30 s), par
 
 ### Histórico (`/history`)
 
-- últimas 30 runs: data, status, `late`, itens, bytes, latência;
-- detalhe por documento com erro e número de tentativas;
-- filtro por documento.
+Implementado (RF-057).
+
+- últimas 30 runs, da mais recente para a mais antiga: data, status, marca de `late`, horário de início/fim, itens, enviados, bytes e latência (`finished_at − started_at`);
+- aviso quando a run tem itens falhos, pulados ou pendentes, e o erro da run em destaque;
+- detalhe por documento: título com link para o detalhe, `chunk_id`, status do item, tentativas, bytes, horário do envio e erro;
+- filtro por documento (`?documento={id}`) que mostra só as runs com item daquele documento e recalcula as somas;
+- documentos removidos aparecem como “Documento removido”, porque `delivery_items` guarda o id e o vínculo com o documento deixa de existir;
+- filtro inválido (`abc`, `0`, negativo) é ignorado e equivale a “todos”;
+- itens `pending` de uma run `running` aparecem como tal; a página não altera a run.
+
+Ainda não implementado: paginação além das 30 runs, exportação e filtro por período/status.
 
 ## Autenticação
 

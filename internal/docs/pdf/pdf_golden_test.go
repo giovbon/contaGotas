@@ -62,8 +62,10 @@ func TestPDFGolden(t *testing.T) {
 			if err != nil {
 				t.Fatalf("golden ausente (rode com -update): %v", err)
 			}
-			if !bytes.Equal(buf.Bytes(), want) {
-				t.Fatalf("golden divergente:\n--- obtido ---\n%s\n--- esperado ---\n%s", buf.String(), string(want))
+			got := bytes.ReplaceAll(buf.Bytes(), []byte("\r\n"), []byte("\n"))
+			want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
+			if !bytes.Equal(got, want) {
+				t.Fatalf("golden divergente:\n--- obtido ---\n%s\n--- esperado ---\n%s", got, want)
 			}
 		})
 	}

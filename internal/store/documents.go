@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -149,6 +150,46 @@ func (r *Documents) UpdateStatus(ctx context.Context, id int64, status DocumentS
 		return fmt.Errorf("store: atualizar status do documento %d: %w", id, err)
 	}
 	return exigirLinhaAfetada(res, "status do documento")
+}
+
+// TransitionStatus troca o status somente se o documento estiver em um dos
+// estados de origem. Devolve false sem erro quando o estado atual não permite
+// (corrida com o worker ou ação repetida). É a forma usada pelas ações de
+// gestão (pausar/retomar/reprocessar), que não podem sobrescrever um estado
+// inesperado.
+func (r *Documents) TransitionStatus(ctx context.Context, id int64, de []DocumentStatus, para DocumentStatus, agora time.Time) (bool, error) {
+	if len(de) == 0 {
+		return false, errors.New("store: transição de status sem estados de origem")
+	}
+	if !para.valid() {
+		return false, fmt.Errorf("store: status de destino inválido: %q", para)
+	}
+	if agora.IsZero() {
+		return false, errors.New("store: transição de status sem data")
+	}
+
+	marcadores := make([]string, len(de))
+	args := make([]any, 0, len(de)+3)
+	args = append(args, string(para), formatarData(agora), id)
+	for i, status := range de {
+		if !status.valid() {
+			return false, fmt.Errorf("store: status de origem inválido: %q", status)
+		}
+		marcadores[i] = "?"
+		args = append(args, string(status))
+	}
+
+	q := `UPDATE documents SET status = ?, updated_at = ?
+		WHERE id = ? AND status IN (` + strings.Join(marcadores, ", ") + `)`
+	res, err := r.db.ExecContext(ctx, q, args...)
+	if err != nil {
+		return false, fmt.Errorf("store: transição de status do documento %d: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("store: transição de status do documento %d: %w", id, err)
+	}
+	return n > 0, nil
 }
 
 // UpdateTotais grava as contagens calculadas pela extração.

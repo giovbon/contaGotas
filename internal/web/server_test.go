@@ -25,13 +25,17 @@ import (
 var agora = time.Date(2026, 10, 27, 18, 0, 0, 0, time.FixedZone("BRT", -3*3600))
 
 type filaFalsa struct {
-	mu  sync.Mutex
-	ids []int64
+	mu   sync.Mutex
+	ids  []int64
+	erro error
 }
 
 func (f *filaFalsa) Enqueue(_ context.Context, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.erro != nil {
+		return f.erro
+	}
 	f.ids = append(f.ids, id)
 	return nil
 }
@@ -75,7 +79,7 @@ func novoAmbienteConfig(t *testing.T, auth web.Middleware, sessions *auth.Authen
 		Queue: fila,
 		Now:   func() time.Time { return agora },
 	}
-	srv := &web.Server{Store: s, Importer: imp, Auth: auth, Sessions: sessions}
+	srv := &web.Server{Store: s, Importer: imp, Queue: fila, Auth: auth, Sessions: sessions}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return &ambiente{srv: srv, store: s, imp: imp, fila: fila, http: ts, root: filepath.Join(root, "data")}

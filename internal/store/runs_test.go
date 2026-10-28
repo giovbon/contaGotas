@@ -510,3 +510,67 @@ func TestRunsDeleteSoRemoveRunAberta(t *testing.T) {
 		t.Error("esperado erro para id inválido")
 	}
 }
+
+func TestRunsList(t *testing.T) {
+	s := abrirTeste(t)
+	ctx := context.Background()
+	docID, chunks := runComChunks(t, s)
+
+	run27, _, err := s.Runs().Create(ctx, "2026-10-27", agora, agora, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run28, _, err := s.Runs().Create(ctx, "2026-10-28", agora, agora, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run26, _, err := s.Runs().Create(ctx, "2026-10-26", agora, agora, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Runs().AddItem(ctx, run27.ID, docID, chunks[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Runs().AddItem(ctx, run26.ID, docID, chunks[len(chunks)-1]); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mais recente primeiro, inclusive a run sem itens.
+	runs, err := s.Runs().List(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("listar: %v", err)
+	}
+	if len(runs) != 3 {
+		t.Fatalf("runs = %d, quer 3", len(runs))
+	}
+	if runs[0].ID != run28.ID || runs[1].ID != run27.ID || runs[2].ID != run26.ID {
+		t.Errorf("ordem = %d, %d, %d", runs[0].ID, runs[1].ID, runs[2].ID)
+	}
+	if !runs[2].Late {
+		t.Error("run de catch-up deveria vir com late")
+	}
+
+	// O filtro considera só runs com item daquele documento.
+	filtradas, err := s.Runs().List(ctx, 10, docID)
+	if err != nil {
+		t.Fatalf("listar filtrado: %v", err)
+	}
+	if len(filtradas) != 2 || filtradas[0].ID != run27.ID || filtradas[1].ID != run26.ID {
+		t.Errorf("filtro por documento = %+v", filtradas)
+	}
+
+	semItens, err := s.Runs().List(ctx, 10, 9999)
+	if err != nil || len(semItens) != 0 {
+		t.Errorf("filtro inexistente = %v, %v", semItens, err)
+	}
+
+	// Limite explícito e limite inválido (padrão 30).
+	duas, err := s.Runs().List(ctx, 2, 0)
+	if err != nil || len(duas) != 2 {
+		t.Errorf("limite 2 = %d runs, %v", len(duas), err)
+	}
+	todas, err := s.Runs().List(ctx, 0, -1)
+	if err != nil || len(todas) != 3 {
+		t.Errorf("limite padrão = %d runs, %v", len(todas), err)
+	}
+}

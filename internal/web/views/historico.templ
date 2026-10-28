@@ -1,0 +1,136 @@
+package views
+
+templ Historico(props HistoricoProps) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<title>Histórico — Reading Drip</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body>
+			@Cabecalho()
+			<main class="container">
+				<div class="cabecalho-pagina">
+					<div>
+						<h1>Histórico</h1>
+						<p class="sub">As últimas 30 entregas, com o resultado de cada documento.</p>
+					</div>
+				</div>
+				<section class="cartao">
+					<form method="get" action="/history" class="form-filtro">
+						<label for="documento">Documento</label>
+						<select id="documento" name="documento">
+							<option value="">Todos</option>
+							for _, d := range props.Documentos {
+								<option value={ numero64(d.ID) } selected?={ docSelecionado(props.Filtro, d.ID) }>{ tituloDoc(d) }</option>
+							}
+						</select>
+						<button type="submit" class="botao secundario">Filtrar</button>
+						if props.Filtro > 0 {
+							<a class="botao secundario" href={ urlHistorico(0) }>Limpar filtro</a>
+						}
+					</form>
+				</section>
+				if len(props.Runs) == 0 {
+					<p class="vazio">Nenhuma entrega registrada ainda.</p>
+				} else {
+					for _, run := range props.Runs {
+						@runHistorico(run)
+					}
+				}
+			</main>
+			@rodape()
+		</body>
+	</html>
+}
+
+templ runHistorico(run HistoricoRun) {
+	<section class="cartao run-historico">
+		<div class="cabecalho-run">
+			<div>
+				<h2>
+					{ run.Run.RunDate }
+					<span class="badge" data-status={ string(run.Run.Status) }>{ rotuloRun(run.Run.Status) }</span>
+					if run.Run.Late {
+						<span class="badge" data-status="late">recuperação</span>
+					}
+				</h2>
+				<p class="sub">
+					Início { formatarData(run.Run.StartedAt) }
+					if run.Run.FinishedAt != nil {
+						<span> · fim { formatarData(*run.Run.FinishedAt) }</span>
+					}
+				</p>
+			</div>
+			<dl class="run-metricas">
+				<div>
+					<dt>Itens</dt>
+					<dd>{ numero(len(run.Itens)) }</dd>
+				</div>
+				<div>
+					<dt>Enviados</dt>
+					<dd>{ numero(run.Enviados) }</dd>
+				</div>
+				<div>
+					<dt>Bytes</dt>
+					<dd>{ formatarBytes(run.Bytes) }</dd>
+				</div>
+				<div>
+					<dt>Latência</dt>
+					<dd>{ formatarLatencia(run.Latencia) }</dd>
+				</div>
+			</dl>
+		</div>
+		if erroDaRun(run.Run) != "" {
+			<p class="alerta" role="alert">{ erroDaRun(run.Run) }</p>
+		}
+		if run.Falhas > 0 || run.Pulados > 0 || run.Pendentes > 0 {
+			<p class="dica">
+				if run.Falhas > 0 {
+					<span>{ pluralItens(run.Falhas, "falhou", "falharam") }</span>
+				}
+				if run.Pulados > 0 {
+					<span>{ pluralItens(run.Pulados, "pulado", "pulados") }</span>
+				}
+				if run.Pendentes > 0 {
+					<span>{ pluralItens(run.Pendentes, "pendente", "pendentes") }</span>
+				}
+			</p>
+		}
+		if len(run.Itens) == 0 {
+			<p class="dica">Nenhum documento entrou nesta entrega.</p>
+		} else {
+			<div class="tabela-rolagem">
+				<table class="tabela-plano">
+					<thead>
+						<tr>
+							<th scope="col">Documento</th>
+							<th scope="col">Trecho</th>
+							<th scope="col">Status</th>
+							<th scope="col">Tentativas</th>
+							<th scope="col">Bytes</th>
+							<th scope="col">Enviado em</th>
+							<th scope="col">Erro</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, item := range run.Itens {
+							<tr>
+								<td><a href={ urlDocumento(item.Item.DocumentID) }>{ item.Titulo }</a></td>
+								<td>#{ numero64(item.Item.ChunkID) }</td>
+								<td><span class="badge" data-status={ string(item.Item.Status) }>{ rotuloItem(item.Item.Status) }</span></td>
+								<td>{ numero(item.Item.Attempts) }</td>
+								<td>{ formatarBytes(bytesDoItem(item.Item)) }</td>
+								<td>{ formatarHora(item.Item.SentAt) }</td>
+								<td>{ erroDoItem(item.Item) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+}

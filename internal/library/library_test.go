@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -331,5 +332,37 @@ func TestCleanupTemp(t *testing.T) {
 	}
 	if _, err := os.Stat(manter); err != nil {
 		t.Errorf("arquivo comum removido: %v", err)
+	}
+}
+
+func TestRemoveOriginal(t *testing.T) {
+	_, imp, _, root := abrirImportador(t)
+	doc, err := imp.Import(context.Background(), library.Entrada{
+		Name:   "Remover.md",
+		Reader: strings.NewReader("# Remover\n\nConteúdo.\n"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "documents", strconv.FormatInt(doc.ID, 10))
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("diretório do documento não existe: %v", err)
+	}
+
+	if err := imp.RemoveOriginal(doc.ID); err != nil {
+		t.Fatalf("remover: %v", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("diretório ainda existe: %v", err)
+	}
+	// Repetir é inofensivo: o diretório já não existe.
+	if err := imp.RemoveOriginal(doc.ID); err != nil {
+		t.Errorf("segunda remoção = %v", err)
+	}
+	if err := imp.RemoveOriginal(0); err == nil {
+		t.Error("esperado erro para id inválido")
+	}
+	if err := (&library.Importer{}).RemoveOriginal(1); err == nil {
+		t.Error("esperado erro sem diretório de dados")
 	}
 }

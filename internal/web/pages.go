@@ -28,6 +28,7 @@ func (s *Server) handleBiblioteca(w http.ResponseWriter, r *http.Request) {
 		Documentos: docs,
 		Importados: queryInt(r, "importados"),
 		Duplicados: queryInt(r, "duplicados"),
+		Excluidos:  queryInt(r, "excluido"),
 		Erro:       strings.TrimSpace(r.URL.Query().Get("erro")),
 	}))
 }
@@ -157,11 +158,26 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	if disposicao == "" {
 		disposicao = "attachment"
 	}
-	if tipo := mime.TypeByExtension(strings.ToLower(filepath.Ext(caminho))); tipo != "" {
-		w.Header().Set("Content-Type", tipo)
-	}
+	w.Header().Set("Content-Type", tipoDoOriginal(filepath.Ext(caminho)))
 	w.Header().Set("Content-Disposition", disposicao)
 	http.ServeContent(w, r, nome, info.ModTime(), arquivo)
+}
+
+// tipoDoOriginal fixa o Content-Type dos formatos aceitos: mime.TypeByExtension
+// depende do registro do sistema operacional (no Windows .md vira text/plain).
+func tipoDoOriginal(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".md", ".markdown":
+		return "text/markdown; charset=utf-8"
+	case ".epub":
+		return "application/epub+zip"
+	case ".pdf":
+		return "application/pdf"
+	}
+	if tipo := mime.TypeByExtension(strings.ToLower(ext)); tipo != "" {
+		return tipo
+	}
+	return "application/octet-stream"
 }
 
 // caminhoOriginal valida que o caminho gravado no banco continua dentro do
@@ -225,12 +241,21 @@ func queryBool(r *http.Request, chave string) bool {
 	return v == "1" || v == "true" || v == "sim"
 }
 
-// mensagensDoEnvio traduz o resultado do envio manual (query do redirect) em
-// texto para o detalhe. Códigos fixos; só `falha` mostra o motivo livre.
+// mensagensDoEnvio traduz o resultado do envio manual e das ações de gestão
+// (query do redirect) em texto para o detalhe. Códigos fixos; só `falha` mostra
+// o motivo livre.
 func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 	q := r.URL.Query()
 	if queryBool(r, "enviado") {
 		aviso = "Trecho enviado para o ntfy."
+	}
+	switch q.Get("acao") {
+	case "pausado":
+		aviso = "Documento pausado: ele não entra nas próximas entregas até você retomar."
+	case "retomado":
+		aviso = "Documento retomado: a leitura continua do trecho pendente."
+	case "reprocessando":
+		aviso = "Documento reenfileirado: a extração recomeça em segundo plano."
 	}
 	switch q.Get("aviso") {
 	case "sem-trechos":
@@ -243,6 +268,12 @@ func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 		aviso = "Uma entrega está em andamento. Tente de novo em instantes."
 	case "indisponivel":
 		aviso = "O documento precisa estar pronto para ser enviado."
+	case "processando":
+		aviso = "A extração deste documento ainda está em andamento."
+	case "pausado":
+		aviso = "Retome o documento antes de reprocessar."
+	case "historico":
+		aviso = "Este documento já tem trechos entregues e não pode ser reextraído. Exclua e envie o arquivo de novo para gerar outro plano."
 	case "tempo":
 		falha = "O ntfy não respondeu a tempo."
 	case "falha":

@@ -1,7 +1,7 @@
 ---
 title: Testes
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Testes
@@ -139,6 +139,8 @@ Sem CGO, o pacote compila pelo stub e `TestExtractStub` verifica o erro claro.
 - `ItemByDocument` devolve `nil` sem erro para documento ausente da run; `Delete` remove só run `running` (cascata nos itens) e preserva run fechada.
 - `Settings.SetMany` grava o lote em transação: chave vazia aborta tudo, valor vazio é gravado como vazio e lote vazio é no-op.
 - `Blocks.Section` devolve do heading ancestral até o próximo heading de nível igual ou maior, incluindo subseções; sem heading anterior, devolve a abertura; índice que não é heading e índice fora do documento devolvem erro.
+- `Documents.TransitionStatus` troca o status só a partir de uma origem permitida, atualiza `updated_at` e devolve `false` sem erro quando o status atual não está na lista (corrida com o worker ou ação repetida); lista de origem vazia, origem/destino inválidos ou data zero devolvem erro; id inexistente devolve `false`.
+- `Runs.List` ordena por `run_date`/`id` decrescente, aplica o limite padrão 30 e o teto 200, ignora documento negativo e, com `documentID > 0`, devolve só runs com item daquele documento (`EXISTS` em `delivery_items`).
 
 ## Ingestão
 
@@ -161,6 +163,7 @@ Sem CGO, o pacote compila pelo stub e `TestExtractStub` verifica o erro claro.
 - Limite: `MaxBytes` pequeno → `TooLargeError` e nenhum documento/temporário; extensão inválida e arquivo vazio também são recusados.
 - Nome `../../x.md` é reduzido ao nome base; o caminho final fica dentro de `{root}/documents`.
 - Falha de enfileiramento desfaz documento e diretório.
+- `Importer.RemoveOriginal` apaga só `{root}/documents/{id}`, é idempotente com diretório ausente e recusa id inválido.
 - Integração com `ingest.Queue` real: documento importado em `processing` vira `ready` com plano ativo.
 - Fila: ordem FIFO, no máximo 1 processamento simultâneo, erros/panic não matam o worker, `Enqueue` respeita contexto com buffer cheio e o ciclo Start/Close é idempotente.
 
@@ -238,7 +241,20 @@ Configurações e envio:
 - id malformado → `404`; sem `Sender` → `503`;
 - botão “Enviar agora” só aparece em documento `ready` com plano ativo.
 
-Pendente de teste quando a UI entrar: demais rotas de ação de gestão (pausar, retomar, reprocessar, excluir e histórico).
+Ações de gestão e histórico:
+
+- `pause`, `resume`, `reprocess`, `GET/POST /documents/{id}/delete`, `DELETE /documents/{id}` e `/history` sem sessão → `303 /login`;
+- pausar `ready` → `303 /documents/{id}?acao=pausado`, status `paused` e evento `system`; pausar de novo repete o redirect sem erro; retomar → `?acao=retomado` e `ready`; retomar de novo é inofensivo;
+- pausar documento em `processing` → `?aviso=indisponivel` e status preservado;
+- detalhe `ready` mostra pausar, reprocessar e excluir; detalhe `paused` mostra o aviso “Documento pausado”, retomar e excluir, sem oferecer pausar de novo;
+- reprocessar `ready` → `?acao=reprocessando`, status `processing` e id na fila; segundo clique em `processing` → `?aviso=processando`;
+- reprocessar com chunk já entregue → `?aviso=historico`, status e fila intactos;
+- falha de `Queue.Enqueue` → `500` e status anterior restaurado (nada fica preso em `processing`);
+- confirmação de exclusão → `200` com “Excluir documento?”, ação `POST` e “Cancelar”; `POST` → `303 /?excluido=1`, documento e diretório do original removidos, e a biblioteca exibe o aviso; repetir → `404`;
+- `DELETE /documents/{id}` remove o documento e responde `303`;
+- `/history` sem runs → “Nenhuma entrega registrada ainda.”; com run enviada → data, status “Enviada”, título do documento, “Enviado”, bytes em KiB, filtro por documento e link do detalhe;
+- filtro por documento sem runs → vazio; filtro do próprio documento e filtro inválido (`documento=abc`) mantêm a listagem;
+- run falha → status “Falhou”, erro da run, erro do item e número de tentativas.
 
 ## Links assinados
 

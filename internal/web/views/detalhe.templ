@@ -34,6 +34,22 @@ templ Detalhe(props DetalheProps) {
 							<button type="submit">Enviar agora</button>
 						</form>
 					}
+					if podePausar(props.Doc) {
+						<form method="post" action={ urlPausar(props.Doc.ID) }>
+							<button class="botao secundario" type="submit">Pausar</button>
+						</form>
+					}
+					if podeRetomar(props.Doc) {
+						<form method="post" action={ urlRetomar(props.Doc.ID) }>
+							<button type="submit">Retomar</button>
+						</form>
+					}
+					if podeReprocessar(props.Doc) {
+						<form method="post" action={ urlReprocessar(props.Doc.ID) }>
+							<button class="botao secundario" type="submit">Reprocessar</button>
+						</form>
+					}
+					<a class="botao perigo" href={ urlExcluir(props.Doc.ID) }>Excluir</a>
 				</div>
 				if props.Aviso != "" {
 					<p class="aviso" role="status">{ props.Aviso }</p>
@@ -49,6 +65,9 @@ templ Detalhe(props DetalheProps) {
 				}
 				if estaProcessando(props.Doc) {
 					<p class="aviso" role="status">Extraindo o conteúdo… A página atualiza quando terminar.</p>
+				}
+				if estaPausado(props.Doc) {
+					<p class="aviso">Documento pausado: ele não entra nas próximas entregas até você retomar.</p>
 				}
 				if precisaOCR(props.Doc) {
 					<p class="aviso">Converta o PDF com OCR e envie novamente para gerar o plano.</p>
