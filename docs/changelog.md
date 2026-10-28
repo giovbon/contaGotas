@@ -8,6 +8,25 @@ updated: 2026-10-28
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
 
+## 2026-10-28 — FASE-2: avisos de pacing inviável
+
+**Adicionado**
+- `plan.Params.Warnings(targetSeconds, chunks)`: função pura que deriva avisos de sanidade no modo `finish_by_days` — alvo abaixo de 180 s (“leitura fragmentada”), acima de 3600 s (“mais de 1 h”) e dias de leitura maiores que o número de chunks (“sobram dias sem conteúdo”). `minutes_per_day` nunca gera aviso, e o plano continua válido em todos os casos (RF-026).
+- `plan.Format` imprime cada aviso como `# aviso: …`, então o CLI `readingdrip plan` mostra o alerta junto do plano.
+- Detalhe (`GET /documents/{id}`) e plano completo (`GET /documents/{id}/plan`) exibem o bloco “Ritmo inviável” com os avisos; `avisosDoPlano` deriva do plano ativo (`Params.Warnings(TargetSeconds, len(Chunks))`), sem novo campo no banco.
+- Golden `headings-days` ganhou a linha de aviso; o plano em si não mudou.
+
+**Decisões**
+- Os avisos são derivados, não persistidos: o plano e `params_json` continuam os mesmos, e a UI sempre recalcula a partir do alvo e dos chunks.
+- Limites exatos de `segmentation.md`: 180 s e 3600 s não avisam; singular/plural é tratado na mensagem.
+- O aviso não muda status, não bloqueia entrega e não impede o plano de ser gerado.
+
+**Documentação**
+- [`segmentation.md`](./segmentation.md#modos-de-ritmo) — `Params.Warnings` e limites.
+- [`web-ui.md`](./web-ui.md) — avisos no detalhe e no plano.
+- [`testing.md`](./testing.md#avisos-de-pacing) — casos de limites, plural e UI.
+- [`roadmap.md`](./roadmap.md) — item da FASE-2 concluído; [`context.md`](./context.md) — estado atual.
+
 ## 2026-10-28 — operações: imagem ARM64, healthcheck e deploy de referência
 
 **Adicionado**

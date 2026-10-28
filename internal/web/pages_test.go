@@ -315,3 +315,46 @@ func TestAssetsEstaticos(t *testing.T) {
 		t.Errorf("arquivo inexistente: status = %d, quer 404", resp.StatusCode)
 	}
 }
+
+func TestDetalheEPlanoMostramAvisoDePacing(t *testing.T) {
+	a, _ := ambienteComLogin(t)
+
+	fonte := filepath.Join(t.TempDir(), "curto.md")
+	if err := os.WriteFile(fonte, []byte("# Curto\n\n"+strings.Repeat("palavra ", 120)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dias := 30
+	id, err := a.store.Documents().Create(context.Background(), store.Document{
+		Title:        "Curto",
+		Format:       "md",
+		SourceName:   "curto.md",
+		SourcePath:   fonte,
+		SourceSHA256: "aviso-de-pacing",
+		Status:       store.StatusProcessing,
+		PacingMode:   "finish_by_days",
+		PacingDays:   &dias,
+		CreatedAt:    agora,
+		UpdatedAt:    agora,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	processar(t, a, id)
+
+	cookie := entrar(t, a, "/documents/"+itoa(id))
+	for _, caminho := range []string{
+		"/documents/" + itoa(id),
+		"/documents/" + itoa(id) + "/plan",
+	} {
+		corpo := lerCorpo(t, getComCookies(t, a, caminho, cookie))
+		for _, trecho := range []string{
+			"Ritmo inviável",
+			"baixo demais",
+			"Sobram 29 dias sem conteúdo",
+		} {
+			if !strings.Contains(corpo, trecho) {
+				t.Errorf("%s sem %q", caminho, trecho)
+			}
+		}
+	}
+}

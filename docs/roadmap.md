@@ -101,7 +101,7 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## FASE-2 — Automação
 
-**Adiantado na FASE-1 (2026-10-28):** histórico de runs e pausar/retomar por documento entraram no incremento 1.12, junto das demais ações de gestão. Falta só o aviso de pacing inviável para fechar a fase.
+**Adiantado na FASE-1 (2026-10-28):** histórico de runs e pausar/retomar por documento entraram no incremento 1.12, junto das demais ações de gestão.
 
 - [x] ticker + calendário + timezone/DST (1.9)
 - [x] idempotência por `run_date` (1.9)
@@ -111,9 +111,11 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] histórico de runs e itens (adiantado em 1.12)
 - [x] pausar/retomar por documento (adiantado em 1.12)
 - [x] limite `max_docs_per_run` (1.9)
-- [ ] avisos de pacing inviável
+- [x] avisos de pacing inviável (1.14)
 
-**Saída:** uma semana inteira de entregas automáticas sem intervenção, incluindo um restart forçado no meio.
+**Incremento 1.14 (concluído em 2026-10-28):** avisos de pacing inviável (RF-026). `Params.Warnings` deriva alertas puros para `finish_by_days` (alvo < 180 s, > 3600 s ou dias maiores que os chunks), o CLI imprime `# aviso:`, e detalhe/plano mostram “Ritmo inviável”. Nada é persistido e o plano continua válido. Ver [`segmentation.md`](./segmentation.md#modos-de-ritmo).
+
+**Saída:** uma semana inteira de entregas automáticas sem intervenção, incluindo um restart forçado no meio. Todos os itens estão entregues; falta essa validação de campo para marcar a fase como concluída.
 
 ---
 

@@ -2,6 +2,17 @@ package views
 
 import "github.com/giovani/readingdrip/internal/store"
 
+templ avisosPlano(avisos []string) {
+	if len(avisos) > 0 {
+		<div class="aviso avisos-plano" role="status">
+			<strong>Ritmo inviável</strong>
+			for _, aviso := range avisos {
+				<span>{ aviso }</span>
+			}
+		</div>
+	}
+}
+
 templ tabelaPlano(plano store.Plan) {
 	<div class="tabela-rolagem">
 		<table class="tabela-plano">
@@ -66,6 +77,7 @@ templ Plano(props DetalheProps) {
 					<p class="sub">
 						{ numero(len(props.Plano.Chunks)) } trechos · prévia sem datas: a agenda entra com o agendador.
 					</p>
+					@avisosPlano(props.Avisos)
 					@tabelaPlano(*props.Plano)
 				}
 			</main>

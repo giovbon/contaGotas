@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/giovani/readingdrip/internal/store"
 	"github.com/giovani/readingdrip/internal/web/views"
 )
 
@@ -67,6 +68,7 @@ func (s *Server) handleDocumento(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, views.Detalhe(views.DetalheProps{
 		Doc:         *doc,
 		Plano:       plano,
+		Avisos:      avisosDoPlano(plano),
 		TemOriginal: temOriginal,
 		Duplicado:   queryBool(r, "duplicado"),
 		Aviso:       aviso,
@@ -103,7 +105,20 @@ func (s *Server) handlePlano(w http.ResponseWriter, r *http.Request) {
 		s.logger().Error("buscar plano ativo", "id", id, "erro", err)
 		plano = nil
 	}
-	s.render(w, r, http.StatusOK, views.Plano(views.DetalheProps{Doc: *doc, Plano: plano}))
+	s.render(w, r, http.StatusOK, views.Plano(views.DetalheProps{
+		Doc:    *doc,
+		Plano:  plano,
+		Avisos: avisosDoPlano(plano),
+	}))
+}
+
+// avisosDoPlano deriva os avisos de pacing do plano ativo (RF-026). O store
+// guarda alvo e parâmetros; os chunks dizem quantos dias de leitura existem.
+func avisosDoPlano(plano *store.Plan) []string {
+	if plano == nil {
+		return nil
+	}
+	return plano.Params.Warnings(plano.TargetSeconds, len(plano.Chunks))
 }
 
 // handleDownload entrega o arquivo original como anexo, apenas se o caminho

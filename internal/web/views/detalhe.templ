@@ -112,6 +112,7 @@ templ Detalhe(props DetalheProps) {
 							</div>
 							<a class="botao secundario" href={ urlPlano(props.Doc.ID) }>Ver plano completo</a>
 						</div>
+						@avisosPlano(props.Avisos)
 						@tabelaPlano(*props.Plano)
 					</section>
 				}

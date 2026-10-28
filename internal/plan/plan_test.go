@@ -195,3 +195,92 @@ func TestSectionPathContinuity(t *testing.T) {
 		}
 	}
 }
+
+func TestWarningsDePacing(t *testing.T) {
+	casos := []struct {
+		nome   string
+		params plan.Params
+		target int
+		chunks int
+		quer   []string
+	}{
+		{
+			nome:   "modo A nunca avisa",
+			params: plan.Params{Mode: plan.ModeMinutesPerDay, Minutes: 1},
+			target: 60, chunks: 1,
+		},
+		{
+			nome:   "alvo no limite inferior não avisa",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 10},
+			target: 180, chunks: 10,
+		},
+		{
+			nome:   "alvo no limite superior não avisa",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 2},
+			target: 3600, chunks: 2,
+		},
+		{
+			nome:   "alvo baixo fragmenta",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 30},
+			target: 40, chunks: 30,
+			quer: []string{"Alvo de 40s", "30 dias", "fragmentada"},
+		},
+		{
+			nome:   "alvo alto passa de uma hora",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 1},
+			target: 3601, chunks: 1,
+			quer: []string{"Alvo de 60m01s", "1 dia", "mais de 1 h"},
+		},
+		{
+			nome:   "sobram dias sem conteúdo",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 30},
+			target: 300, chunks: 4,
+			quer: []string{"Sobram 26 dias sem conteúdo", "4 dias"},
+		},
+		{
+			nome:   "sobra um único dia",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 5},
+			target: 300, chunks: 4,
+			quer: []string{"Sobra 1 dia sem conteúdo", "4 dias"},
+		},
+		{
+			nome:   "dias iguais aos chunks não sobram",
+			params: plan.Params{Mode: plan.ModeFinishByDays, Days: 4},
+			target: 300, chunks: 4,
+		},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nome, func(t *testing.T) {
+			avisos := caso.params.Warnings(caso.target, caso.chunks)
+			if len(caso.quer) == 0 {
+				if len(avisos) != 0 {
+					t.Fatalf("avisos = %v, quer nenhum", avisos)
+				}
+				return
+			}
+			texto := strings.Join(avisos, "\n")
+			for _, trecho := range caso.quer {
+				if !strings.Contains(texto, trecho) {
+					t.Errorf("avisos = %v, quer conter %q", avisos, trecho)
+				}
+			}
+		})
+	}
+}
+
+func TestFormatIncluiAvisos(t *testing.T) {
+	bs := loadPrepared(t, "headings")
+	params := plan.Params{Mode: plan.ModeFinishByDays, Days: 5}
+	pl, err := plan.Generate(bs, params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	if err := plan.Format(&buf, "headings.md", bs, pl, params); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "# aviso: Alvo de ") {
+		t.Errorf("formato sem aviso de pacing:\n%s", buf.String())
+	}
+}

@@ -124,6 +124,7 @@ Implementado:
 - ações de gestão: “Pausar” (`ready`), “Retomar” (`paused`), “Reprocessar” (`ready`/`failed`/`needs_ocr`) e “Excluir” (sempre, com confirmação);
 - aviso do envio manual (`?enviado=1`, `?aviso=…`), das ações (`?acao=pausado|retomado|reprocessando`) ou a falha de publicação (`?aviso=falha&motivo=…`);
 - prévia do plano ativo com `seq`, seção, palavras, minutos e status, com link para o preview completo;
+- aviso “Ritmo inviável” quando o `finish_by_days` produz alvo abaixo de 3 min, acima de 1 h ou mais dias que trechos (RF-026); o plano continua válido.
 - polling de status: com JS, a própria página é consultada a cada 1,5 s enquanto o status é `processing`; ao mudar, recarrega; desiste após ~3 min. Sem JS, basta recarregar.
 
 Ainda não implementado: edição de metadados e ritmo, “regenerar a partir do cursor” e avisos de `oversized`/`stale`.
@@ -133,6 +134,7 @@ Ainda não implementado: edição de metadados e ritmo, “regenerar a partir do
 Implementado (somente leitura):
 
 - tabela com `seq`, seção, palavras, minutos e status por chunk;
+- avisos de ritmo inviável (alvo < 3 min, > 1 h ou dias sobrando) derivados dos parâmetros do plano;
 - indicação da versão ativa e mensagem quando ainda não há plano.
 
 Ainda não implementado: paginação/virtualização, expansão para ler o texto do chunk, edição de fronteiras (mesclar/dividir/mover) e simulação de `min_fill`/`max_overshoot`.

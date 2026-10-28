@@ -150,6 +150,10 @@ h2 {
 	color: var(--erro);
 }
 
+.avisos-plano strong {
+	flex-basis: 100%;
+}
+
 .envio {
 	background: var(--superficie);
 	border: 1px solid var(--borda);

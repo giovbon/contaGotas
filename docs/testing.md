@@ -128,6 +128,15 @@ Sem CGO, o pacote compila pelo stub e `TestExtractStub` verifica o erro claro.
 - Proibido iterar `map` para produzir ordem; sempre ordenar.
 - Teste `TestDeterminism` roda 100 vezes em processo e compara hashes.
 
+## Avisos de pacing
+
+- `Params.Warnings` só avisa no modo `finish_by_days`; `minutes_per_day` nunca gera aviso.
+- Limites exatos: alvo de 180 s e 3600 s não avisam; 179 s e 3601 s avisam.
+- Dias maiores que chunks geram “Sobram N dias sem conteúdo”; dias iguais ou menores não geram.
+- Singular/plural: “1 dia”, “Sobra 1 dia”, “Sobram 2 dias”.
+- `plan.Format` escreve cada aviso como `# aviso: …`; goldens com `finish_by_days` refletem a linha.
+- Detalhe e plano completo mostram “Ritmo inviável” para documento `finish_by_days` com 30 dias e texto curto.
+
 ## Store
 
 - Banco em `t.TempDir()` com migrações reais (não mock).

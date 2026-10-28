@@ -95,6 +95,47 @@ func (p Params) Target(totalSeconds int) (int, error) {
 	}
 }
 
+// Warnings devolve avisos de sanidade do ritmo (RF-026). O plano continua
+// válido: os avisos só indicam que o pacing escolhido produz fragmentação,
+// dias longos demais ou dias sem conteúdo. É uma função pura e determinística.
+func (p Params) Warnings(targetSeconds, chunks int) []string {
+	p = p.normalized()
+	if p.Mode != ModeFinishByDays {
+		return nil
+	}
+
+	var avisos []string
+	if targetSeconds < 180 {
+		avisos = append(avisos, fmt.Sprintf(
+			"Alvo de %s por dia é baixo demais para este conteúdo (%s): a leitura fica fragmentada.",
+			FormatDuration(targetSeconds), diasTexto(p.Days)))
+	} else if targetSeconds > 3600 {
+		avisos = append(avisos, fmt.Sprintf(
+			"Alvo de %s por dia é alto demais para este conteúdo (%s): cada dia terá mais de 1 h.",
+			FormatDuration(targetSeconds), diasTexto(p.Days)))
+	}
+	if chunks > 0 && p.Days > chunks {
+		restantes := p.Days - chunks
+		if restantes == 1 {
+			avisos = append(avisos, fmt.Sprintf(
+				"Sobra 1 dia sem conteúdo: o documento termina em %s de leitura.",
+				diasTexto(chunks)))
+		} else {
+			avisos = append(avisos, fmt.Sprintf(
+				"Sobram %s sem conteúdo: o documento termina em %s de leitura.",
+				diasTexto(restantes), diasTexto(chunks)))
+		}
+	}
+	return avisos
+}
+
+func diasTexto(n int) string {
+	if n == 1 {
+		return "1 dia"
+	}
+	return fmt.Sprintf("%d dias", n)
+}
+
 // bounds devolve alvo, mínimo e máximo em segundos.
 func (p Params) bounds(totalSeconds int) (target, min, max int, err error) {
 	p = p.normalized()

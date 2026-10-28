@@ -22,6 +22,11 @@ func Format(w io.Writer, docName string, bs []blocks.Block, pl *Plan, p Params) 
 		docName, pl.Mode, target, min, max); err != nil {
 		return err
 	}
+	for _, aviso := range p.Warnings(pl.TargetSeconds, len(pl.Chunks)) {
+		if _, err := fmt.Fprintf(w, "# aviso: %s\n", aviso); err != nil {
+			return err
+		}
+	}
 
 	for _, c := range pl.Chunks {
 		line := fmt.Sprintf("%03d  [%d..%d]  %-7s %8s  %s  start=%d end=%d",

@@ -26,6 +26,7 @@ type BibliotecaProps struct {
 type DetalheProps struct {
 	Doc         store.Document
 	Plano       *store.Plan
+	Avisos      []string
 	TemOriginal bool
 	Duplicado   bool
 	Aviso       string

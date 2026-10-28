@@ -1,7 +1,7 @@
 ---
 title: Segmentação
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-28
 ---
 
 # Segmentação
@@ -192,9 +192,11 @@ Limites de sanidade (avisos, não erros):
 
 | Condição | Aviso |
 |---|---|
-| `target < 180 s` | “N alto demais para este conteúdo; leitura fragmentada” |
-| `target > 3600 s` | “N baixo demais; cada dia terá mais de 1 h” |
+| `target < 180 s` | “Alvo baixo demais para este conteúdo; leitura fragmentada” |
+| `target > 3600 s` | “Alvo alto demais; cada dia terá mais de 1 h” |
 | `pacing_days > número de chunks possível` | “Sobram dias sem conteúdo” |
+
+Os avisos são derivados por `Params.Warnings(target, chunks)`, uma função pura que não altera o plano nem o status. Aparecem como `# aviso:` no CLI, em “Ritmo inviável” no detalhe e no plano completo; o plano continua válido (RF-026).
 
 ### Mudança de pacing
 
@@ -229,7 +231,7 @@ Desempate futuro: menor custo; persistindo, maior duração ≤ `max`; persistin
 | Heading sem conteúdo (seguido de outro heading) | transportado para o próximo conteúdo; nunca fica no fim |
 | Heading como último bloco do arquivo | exceção: o último chunk pode terminar nele, pois não há conteúdo seguinte |
 | Notas de rodapé (FASE-0) | um bloco `footnote` no fim do documento; ligação por referência fica para a FASE-1 |
-| `pacing_days` inviável | plano gerado mesmo assim + aviso (aviso na FASE-1) |
+| `pacing_days` inviável | plano gerado mesmo assim + aviso na UI/CLI (RF-026) |
 | Plano antigo com bloco removido | validação de hashes marca `stale` e impede entrega |
 
 ## Determinismo e versionamento
