@@ -1,7 +1,7 @@
 ---
 title: Operações
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Operações
@@ -13,7 +13,7 @@ Build, deploy, backup e diagnóstico. Alvo: uma instância ARM64 atrás de Cloud
 | Item | Versão |
 |---|---|
 | Go | 1.26+ (templ exige) |
-| Docker + buildx | 24+ |
+| Docker + buildx | 24+ (Docker Compose **v2** para o `compose.yaml`) |
 | templ | CLI via `go run` (pinada em `v0.3.1070`) |
 | ntfy | self-hosted, `message-size-limit: 64k` |
 | Cloudflare | domínio + tunnel |
@@ -50,6 +50,8 @@ O entrypoint HTTP é `cmd/app`; ele exige `APP_PASSWORD` e `APP_SECRET` (32+ byt
 
 O `/Dockerfile` implementa o [ADR-0008](./adr/0008-build-arm64-distroless.md): build multi-stage com CGO (MuPDF), link estático e runtime `distroless/static-debian12:nonroot`. Os `_templ.go` são gerados no build para impedir que uma view alterada sem regenerar entre na imagem.
 
+O estágio de build usa `golang:${GO_VERSION}-trixie` (glibc 2.41). **Não volte para bookworm**: os objetos pré-compilados do `go-fitz` referenciam `__isoc23_strtol`/`__isoc23_strtoul`, que não existem na libc 2.36 e quebram o link com `undefined reference`. O runtime continua distroless static, sem libc.
+
 ```sh
 # cross-compile ARM64 a partir de amd64 (caminho de referência)
 docker buildx build --platform linux/arm64 -t readingdrip:arm64 .
@@ -59,6 +61,12 @@ docker buildx build --platform linux/arm64 --build-arg NATIVE=1 -t readingdrip:a
 
 # com versão na label da imagem
 docker buildx build --platform linux/arm64 --build-arg VERSION=1.0.0 -t readingdrip:1.0.0 .
+```
+
+Em host amd64, o cross exige o emulador de binfmt. O build em si roda nativo (o Go só usa o `aarch64-linux-gnu-gcc`), mas o smoke test do container ARM64 precisa dele:
+
+```sh
+docker run --privileged --rm tonistiigi/binfmt --install arm64
 ```
 
 Argumentos de build:
@@ -82,10 +90,24 @@ docker rm -f rd-smoke
 
 Notas:
 - `-linkmode external -extldflags '-static'` com `netgo,osusergo` evita dependência de libc no runtime.
-- Preferir **build nativo em runner ARM64** (rápido e sem surpresas de cross). O cross acima é o caminho de referência; validar no CI (`SPIKE-03`).
+- Preferir **build nativo em runner ARM64** (rápido e sem surpresas de cross). O cross acima é o caminho de referência; validado em 2026-10-29 (`SPIKE-03`).
 - `cmd/app` importa `time/tzdata` e responde ao subcomando `healthcheck` (consulta `GET /readyz`), porque a imagem não tem shell, `curl` nem `wget`.
 - CSS e JS são embutidos via `go:embed`; o build não precisa de Node ([ADR-0014](./adr/0014-ui-css-js-proprios.md)).
-- O estado do build nesta máquina é **pendente de validação**: o daemon do Docker não está disponível. O cross-compile Go (`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./...`) passa, mas não substitui o build da imagem com CGO.
+
+### Validação da imagem (2026-10-29)
+
+O build cross ARM64 e o smoke test foram executados num host amd64 com Docker 29 + BuildKit e QEMU/binfmt:
+
+| Verificação | Resultado |
+|---|---|
+| `docker buildx build --platform linux/arm64 --load .` | concluiu |
+| arquitetura e tamanho | `arm64 linux`, **23.965.482 bytes (~22,9 MiB)** |
+| container com `read_only` + `tmpfs /tmp` | `healthy` |
+| `/healthz` e `/readyz` | `200` |
+| upload `.md` → extração → plano | `processing → ready` em ~0,3 s; 6 blocos, 1 chunk, plano v1 |
+| original preservado | `/data/documents/1/source.md`, owner `65532:65532` |
+
+O primeiro build **falhou** com bookworm (glibc 2.36) por causa dos símbolos `__isoc23_*` do MuPDF; a troca do builder para trixie resolveu. O container rodou sob emulação ARM64, então os tempos acima não valem como medição de performance nativa (`SPIKE-04`).
 
 ## Compose (`compose.yaml`)
 
@@ -105,6 +127,8 @@ O app fica em `127.0.0.1:8080` (não exposto na internet) e o `cloudflared` só 
 ```sh
 RD_IMAGE=ghcr.io/<user>/readingdrip:latest docker compose up -d --no-build
 ```
+
+O arquivo usa a chave de topo `name:` e a sintaxe do Compose **v2**. O `docker-compose` v1 (Python) não o aceita; confira com `docker compose version` antes do deploy. A validação de 2026-10-29 cobriu a imagem e o container isolado (`read_only`, `tmpfs`, volume, healthcheck); o `compose.yaml` completo ainda depende do host com Compose v2 e das credenciais do Cloudflare.
 
 Permissões no volume (distroless nonroot, uid 65532):
 

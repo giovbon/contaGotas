@@ -1,4 +1,5 @@
 # doc: testdata/pdf/coluna-unica.pdf  mode=finish_by_days  target=31s  min=18s  max=43s
+# aviso: Alvo de 31s por dia é baixo demais para este conteúdo (2 dias): a leitura fica fragmentada.
 000  [0..7]  43s         125w  A arte de ler devagar  start=0 end=0
 001  [8..13]  20s          47w  A arte de ler devagar › 1.2 Hifenizacao  start=0 end=0
 # total: 2 chunks, 1m03s, coverage=ok

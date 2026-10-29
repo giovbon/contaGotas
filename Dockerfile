@@ -10,7 +10,9 @@
 #   docker buildx build --platform linux/arm64 --build-arg NATIVE=1 -t readingdrip:arm64 .
 
 ARG GO_VERSION=1.27
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS build
+# trixie (glibc 2.41): os objetos pré-compilados do go-fitz usam símbolos
+# __isoc23_* e não linkam com a libc 2.36 do bookworm.
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-trixie AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG NATIVE=0

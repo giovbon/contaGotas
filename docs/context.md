@@ -1,7 +1,7 @@
 ---
 title: Contexto do projeto
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Contexto
@@ -87,10 +87,10 @@ Cada documento tem seu próprio plano e seu próprio ritmo. Vários documentos p
 | Item | Estado |
 |---|---|
 | Documentação e decisões | **concluída** (2026-10-26) |
-| Código | **FASE-1 em andamento** — FASE-0 concluída; store, ingestão, importação, fila, upload, sessão, telas, entrypoint, composição, cliente ntfy, agendador, configurações/entrega manual, leitor por link assinado, ações de gestão, histórico, Dockerfile/compose, healthcheck e avisos de pacing prontos |
-| Fase atual | `FASE-1` — MVP utilizável; falta validar o build da imagem ARM64 e o deploy num host com Docker, além das configurações de plano |
-| Próximo marco | validar `docker buildx --platform linux/arm64` + `compose.yaml` + Cloudflare Tunnel; `SPIKE-04` (memória ARM64) segue aberto e não bloqueia a FASE-1 |
+| Código | **FASE-1 em andamento** — FASE-0 concluída; store, ingestão, importação, fila, upload, sessão, telas, entrypoint, composição, cliente ntfy, agendador, configurações/entrega manual, leitor por link assinado, ações de gestão, histórico, Dockerfile/compose, healthcheck, avisos de pacing e validação da imagem ARM64 prontos |
+| Fase atual | `FASE-1` — MVP utilizável; falta validar o deploy num host com Docker + Compose v2 e as configurações de plano |
+| Próximo marco | rodar `compose.yaml` com Cloudflare Tunnel num host real; `SPIKE-04` (memória ARM64) segue aberto e não bloqueia a FASE-1 |
 
 ## Próximo passo
 
-Validar a imagem ARM64 e o deploy em um host com Docker (o daemon não está disponível na máquina de desenvolvimento). O `/Dockerfile` já implementa o [ADR-0008](./adr/0008-build-arm64-distroless.md) — cross ARM64 com CGO estático ou `NATIVE=1`, runtime distroless non-root — e o `cmd/app` responde a `healthcheck` consultando `/readyz`, já que a imagem não tem shell. O `/compose.yaml` sobe app, `cloudflared` e `ntfy`, com `read_only`, `tmpfs` em `/tmp`, volume `/data`, porta só em `127.0.0.1` e `depends_on` por healthcheck; `/deploy/ntfy/server.yml` e `/.env.example` completam o pacote. Os avisos de pacing inviável (1.14) fecham os itens da FASE-2: `Params.Warnings` aponta alvo abaixo de 3 min, acima de 1 h ou dias sobrando no `finish_by_days`, no CLI e nas telas de detalhe/plano. Ainda falta a semana de entregas automáticas sem intervenção para marcar a FASE-2 como concluída. Roteiro de verificação em [`operations.md`](./operations.md#imagem-dockerfile). As ações de gestão e o histórico (1.12), o leitor com token assinado (1.11), as configurações de agenda/ntfy e os envios (1.10), o agendador (1.9), a composição/cliente ntfy (1.8), a autenticação de sessão ([ADR-0013](./adr/0013-sessao-hmac-argon2id.md)), as telas ([ADR-0014](./adr/0014-ui-css-js-proprios.md)), o entrypoint HTTP (`cmd/app`), a importação, a extração Markdown/EPUB/PDF e o plano nos dois modos estão prontos. As configurações de plano ficam para a FASE-3. O pico de memória de PDF com figuras grandes continua em aberto (`Q-016`, `SPIKE-04`).
+Validar o `compose.yaml` e o deploy num host com Docker + Compose **v2** e credenciais do Cloudflare Tunnel. A imagem ARM64 já foi validada em 2026-10-29: build cross `linux/arm64` concluiu com o builder em `golang:1.27-trixie` (o bookworm falhava por `__isoc23_*` do MuPDF), imagem de ~22,9 MiB, container `healthy` com `read_only` + `tmpfs`, `/readyz` 200 e fluxo upload/plano funcionando. O host de validação não tem o plugin Compose v2, então o arquivo completo (`app`, `cloudflared`, `ntfy`) ainda não subiu. Roteiro em [`operations.md`](./operations.md#imagem-dockerfile). Os avisos de pacing inviável (1.14) fecham os itens da FASE-2: `Params.Warnings` aponta alvo abaixo de 3 min, acima de 1 h ou dias sobrando no `finish_by_days`, no CLI e nas telas de detalhe/plano. Ainda falta a semana de entregas automáticas sem intervenção para marcar a FASE-2 como concluída. As ações de gestão e o histórico (1.12), o leitor com token assinado (1.11), as configurações de agenda/ntfy e os envios (1.10), o agendador (1.9), a composição/cliente ntfy (1.8), a autenticação de sessão ([ADR-0013](./adr/0013-sessao-hmac-argon2id.md)), as telas ([ADR-0014](./adr/0014-ui-css-js-proprios.md)), o entrypoint HTTP (`cmd/app`), a importação, a extração Markdown/EPUB/PDF e o plano nos dois modos estão prontos. As configurações de plano ficam para a FASE-3. O pico de memória de PDF com figuras grandes continua em aberto (`Q-016`, `SPIKE-04`).

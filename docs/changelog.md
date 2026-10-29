@@ -1,12 +1,28 @@
 ---
 title: Changelog
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Changelog
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
+
+## 2026-10-29 — validação da imagem ARM64 e correção do builder
+
+**Adicionado**
+- Validação do build cross `docker buildx build --platform linux/arm64 --load .` num host amd64 com Docker 29 + BuildKit e QEMU/binfmt. A imagem `readingdrip:arm64` resultou em `arm64 linux`, **23.965.482 bytes (~22,9 MiB)**.
+- Smoke test do container sob emulação: `healthy` com `read_only: true` e `tmpfs /tmp`; `/healthz` e `/readyz` responderam `200`; upload de `.md` chegou a `ready` com 6 blocos/1 chunk/plano v1; original preservado em `/data/documents/1/source.md` com owner `65532:65532`.
+- Seção “Validação da imagem (2026-10-29)” em [`operations.md`](./operations.md#validação-da-imagem-2026-10-29) e nota de que o `compose.yaml` exige Compose v2.
+
+**Corrigido**
+- `/Dockerfile`: o estágio de build passou de `golang:1.27-bookworm` para `golang:1.27-trixie`. Os objetos pré-compilados do `go-fitz` referenciam `__isoc23_strtol`/`__isoc23_strtoul`, ausentes na glibc 2.36 do bookworm; o link cross falhava com `undefined reference`. O runtime distroless static não muda.
+- Goldens `pdf_coluna-unica.plan.txt` e `pdf_duas-colunas.plan.txt` regenerados com as linhas `# aviso:` do incremento 1.14, que estavam faltando e quebravam `go test ./... -race` (`TestPDFGolden`).
+
+**Documentação**
+- [`operations.md`](./operations.md) — resultado real do build/smoke test, requisito de binfmt e de Compose v2.
+- [`roadmap.md`](./roadmap.md) — item “Dockerfile + imagem arm64” concluído; deploy com Cloudflare segue pendente.
+- [`context.md`](./context.md) — estado e próximo passo.
 
 ## 2026-10-28 — FASE-2: avisos de pacing inviável
 

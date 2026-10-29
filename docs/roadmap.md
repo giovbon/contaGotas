@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Roadmap
@@ -66,8 +66,10 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] leitor com token assinado + “marcar lido”
 - [x] autenticação por senha + sessão
 - [x] ações de gestão + histórico (1.12)
-- [ ] Dockerfile + imagem arm64 (Dockerfile e healthcheck prontos em 1.13; falta validar o build em ARM64)
-- [ ] deploy atrás de Cloudflare Tunnel (compose e doc prontos em 1.13; falta validar no host)
+- [x] Dockerfile + imagem arm64 (build cross + smoke test em 2026-10-29)
+- [ ] deploy atrás de Cloudflare Tunnel (compose e doc prontos em 1.13; imagem validada em 1.13; falta rodar no host com Compose v2)
+
+**Validação 1.13 (2026-10-29):** com o Docker disponível, o build cross ARM64 foi executado e passou depois de trocar o builder de `bookworm` para `trixie` — os objetos pré-compilados do `go-fitz` usam `__isoc23_strtol`/`strtoul`, ausentes na glibc 2.36. A imagem resultante tem **23.965.482 bytes (~22,9 MiB)**, arquitetura `arm64`, e o container subiu `healthy` com `read_only` + `tmpfs /tmp`; `/healthz` e `/readyz` responderam `200`, e o fluxo upload `.md` → `ready` → plano v1 funcionou com o original preservado em `/data/documents/1/source.md` (owner `65532`). O deploy completo com `compose.yaml` e Cloudflare Tunnel segue pendente: o host de validação não tem o plugin Compose v2 nem credenciais do túnel.
 
 **Incremento 1.13 (entregue em 2026-10-28, validação pendente):** imagem ARM64 e deploy de referência. `/Dockerfile` multi-stage com cross `gcc-aarch64-linux-gnu` (ou `NATIVE=1` em runner ARM64), `templ generate`, CGO com link estático e runtime distroless non-root; `cmd/app healthcheck` consulta `/readyz` (a imagem não tem shell) e `cmd/app` embute `time/tzdata`. `/compose.yaml` sobe app, `cloudflared` e `ntfy`, com app `read_only`, `/tmp` em tmpfs, volume `/data`, porta só em `127.0.0.1` e `depends_on` por healthcheck; `/deploy/ntfy/server.yml` e `/.env.example` completam o pacote. O build da imagem ainda **não foi executado** (daemon do Docker indisponível); ver [`operations.md`](./operations.md#imagem-dockerfile).
 
