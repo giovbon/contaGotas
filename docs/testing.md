@@ -141,6 +141,9 @@ Sem CGO, o pacote compila pelo stub e `TestExtractStub` verifica o erro claro.
 
 - Banco em `t.TempDir()` com migrações reais (não mock).
 - Teste de migração: criar schema antigo, aplicar migrações, validar dados.
+- Backup: `Store.Backup` copia dados e configurações para o destino, cria diretório pai e não sobrescreve um arquivo existente; destino vazio devolve erro.
+- Backup pré-migração: `migrar` com migração sintética grava `pre-migrate-{versão}.db`, chama `OnBackup`, aplica a migração no banco e deixa o backup sem a tabela nova (estado anterior).
+- `OpenWithOptions` num banco novo não cria o diretório de backup.
 - `PRAGMA integrity_check` ao final de cada teste.
 - Concorrência: 10 goroutines criando runs no mesmo dia → exatamente 1 linha.
 - Runs: `Create` idempotente por `run_date`, `Running` devolve a mais recente, `AddItem` recusa segunda dose do mesmo documento e `MarkItemSent` grava item+chunk ou faz rollback com `ErrChunkNotPending`.

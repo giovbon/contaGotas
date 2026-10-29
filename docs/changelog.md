@@ -8,6 +8,40 @@ updated: 2026-10-29
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
 
+## 2026-10-29 — backup pré-migração (RF-092)
+
+**Adicionado**
+- `store.OpenWithOptions(ctx, path, store.Options{BackupDir, OnBackup})`: quando há migrações pendentes num banco existente (arquivo não vazio), grava `VACUUM INTO {BackupDir}/pre-migrate-{versão-alvo}.db` **antes** de criar/aplicar qualquer migração. `OnBackup` recebe o caminho final para log. `store.Open` continua equivalente a `OpenWithOptions` sem backup.
+- `store.Store.Backup(ctx, dest)`: cria o diretório pai, grava em `dest + ".tmp"` e renomeia para o nome final. Backup existente é tratado como íntegro e preservado (não sobrescreve). Destino vazio ou banco fechado devolvem erro.
+- `platform.Config.BackupDir()` (`{APP_DATA_DIR}/backup`); `cmd/app` abre o store com backup e loga “backup pré-migração gravado”.
+
+**Decisões**
+- O backup precede até o `CREATE TABLE schema_migrations`; banco novo não gera arquivo e falha no backup aborta o start sem tocar no schema.
+- O nome usa a **versão-alvo** (maior migração pendente), seguindo `pre-migrate-{versão}.db` de `data-model.md`. Repetir o mesmo upgrade reaproveita o backup da tentativa anterior.
+- `VACUUM INTO` com parâmetro vinculado, seguro com WAL (ADR-0007). O temporário + rename evita que um backup interrompido apareça como válido.
+
+**Testes**
+- `internal/store/backup_test.go`: cópia de dados/configurações, preservação de destino existente, destino vazio, backup antes de migração sintética (estado anterior sem a tabela nova e `OnBackup` chamado) e banco novo sem diretório de backup.
+
+**Documentação**
+- [`data-model.md`](./data-model.md#migrações) — fluxo de `OpenWithOptions`/`Backup` e nome do arquivo; [`operations.md`](./operations.md#upgrade) — backup automático no upgrade.
+- [`testing.md`](./testing.md#store) — casos de backup; [`roadmap.md`](./roadmap.md) — 1.16 e FASE-4 parcial; [`context.md`](./context.md) — estado e próximo passo.
+
+## 2026-10-29 — padrões de plano em `/settings` (1.15)
+
+**Adicionado**
+- `internal/planconfig`: `Config`/`Default`/`Load`/`Parse` para `plan.wpm` (50–1000), `plan.difficulty` (0,5–3,0), `plan.min_fill` (0,30–0,95), `plan.max_overshoot` (1,00–3,00) e `plan.recap` (bool). Valores ausentes/vazios caem no padrão; inválidos devolvem erro citando a chave; `NaN`/`Inf` são recusados.
+- `/settings` ganhou a seção “Plano”. O formulário é validado inteiro por `schedule.Parse` (que inclui `planconfig.Parse`) e gravado em transação; valor inválido não persiste.
+- A importação aplica `plan.wpm`/`plan.difficulty` ao documento novo; a extração lê `plan.min_fill`/`plan.max_overshoot`; `plan.recap=false` desliga o “Onde paramos” na composição (`Options.RecapDisabled`).
+- Testes de `planconfig` (padrões, faixas, limites, `Load`), da UI e da importação.
+
+**Decisões**
+- Padrões globais valem só para documentos novos (WPM/dificuldade) ou na próxima extração/reprocessamento (min/max); documentos existentes mantêm `params_json` e metadados.
+- O pacing (minutos/dias) continua por documento; os padrões não criam novo campo nem migração.
+
+**Documentação**
+- [`segmentation.md`](./segmentation.md#parâmetros), [`reading-time.md`](./reading-time.md), [`continuity.md`](./continuity.md), [`delivery-ntfy.md`](./delivery-ntfy.md), [`web-ui.md`](./web-ui.md#configurações-settings), [`roadmap.md`](./roadmap.md) e [`context.md`](./context.md).
+
 ## 2026-10-29 — validação da imagem ARM64 e correção do builder
 
 **Adicionado**

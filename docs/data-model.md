@@ -221,16 +221,18 @@ WHERE seq > 0 AND first_block_id <> prev_last + 1;
 - Arquivos embutidos: `internal/store/migrations/0001_init.sql`, `0002_....sql`.
 - Aplicadas em transação, em ordem, no start; `schema_migrations` registra a versão.
 - **Forward-only.** Correção de erro usa nova migração; nunca editar uma já publicada.
-- Antes de migrar, o app copia o banco para `/data/backup/pre-migrate-{version}.db` (arquivo + `VACUUM INTO`).
-- Falha na migração aborta o start com log claro; o processo não sobe com schema inconsistente.
+- Antes de migrar, o app grava `VACUUM INTO /data/backup/pre-migrate-{versão-alvo}.db` quando o banco já tem dados. Banco novo (arquivo ausente ou vazio) não gera backup.
+- O backup só aparece no nome final depois de completo (temporário + rename). Se o arquivo já existe de uma tentativa anterior, é preservado e a migração continua.
+- Falha no backup aborta o start antes de qualquer alteração de schema. Falha na migração também aborta com log claro; o processo não sobe com schema inconsistente.
 
-### Implementação (2026-10-27)
+### Implementação (2026-10-27, backup em 2026-10-29)
 
-`store.Open(ctx, path)` cria o diretório se preciso, abre com os PRAGMAs do topo via DSN (`journal_mode`, `synchronous`, `foreign_keys` e `busy_timeout` são por conexão, exceto o journal mode, gravado no arquivo), usa no máximo 4 conexões e aplica as migrações pendentes antes de devolver o `*Store`.
+`store.Open(ctx, path)` cria o diretório se preciso, abre com os PRAGMAs do topo via DSN (`journal_mode`, `synchronous`, `foreign_keys` e `busy_timeout` são por conexão, exceto o journal mode, gravado no arquivo), usa no máximo 4 conexões e aplica as migrações pendentes antes de devolver o `*Store`. `Open` equivale a `OpenWithOptions(ctx, path, Options{})`, sem backup.
 
 - `internal/store/migrate.go`: lê `migrations/*.sql` com `go:embed`, ordena pelo prefixo numérico, recusa versão duplicada e aplica cada arquivo em uma transação junto com o `INSERT` em `schema_migrations`. Reabrir o banco não reaplica nada.
 - `schema_migrations.applied_at` usa `strftime('%Y-%m-%dT%H:%M:%SZ','now')`; datas de domínio são sempre passadas pelo chamador (sem `time.Now()` no store).
-- Backup pré-migração (`VACUUM INTO`) ainda **não** está implementado; entra junto com o start do app.
+- `OpenWithOptions` recebe `Options{BackupDir, OnBackup}`. Com `BackupDir` preenchido e migrações pendentes num banco existente, chama `Store.Backup` antes de criar/aplicar qualquer migração; `OnBackup` recebe o caminho final para log. `cmd/app` usa `{APP_DATA_DIR}/backup` e loga “backup pré-migração gravado”.
+- `Store.Backup(ctx, dest)` usa `VACUUM INTO ?` (seguro com WAL, ADR-0007), cria o diretório, grava em `dest + ".tmp"` e renomeia. Destino já existente é tratado como backup íntegro e não é sobrescrito.
 
 ### Repositórios (2026-10-27)
 
@@ -323,7 +325,7 @@ sqlite3 /data/db/app.db "VACUUM INTO '/data/backup/app-$(date +%F).db'"
 tar -C /data -czf /data/backup/documents-$(date +%F).tar.gz documents
 ```
 
-Restore: parar o container, substituir `app.db` e `documents/`, subir. Migrações pendentes rodam no start.
+Restore: parar o container, substituir `app.db` e `documents/`, subir. Migrações pendentes rodam no start. O backup automático pré-migração fica em `backup/pre-migrate-{versão-alvo}.db` e cobre só o banco; os originais continuam em `documents/`.
 
 ## Formato de `params_json`
 

@@ -130,7 +130,12 @@ func montar(ctx context.Context, cfg platform.Config, logger *slog.Logger) (*apl
 		return nil, err
 	}
 
-	st, err := store.Open(ctx, cfg.DBPath())
+	st, err := store.OpenWithOptions(ctx, cfg.DBPath(), store.Options{
+		BackupDir: cfg.BackupDir(),
+		OnBackup: func(caminho string) {
+			logger.Info("backup pré-migração gravado", "arquivo", caminho)
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

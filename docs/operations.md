@@ -195,6 +195,7 @@ find /data/backup -type f -mtime +14 -delete
 ```
 
 - `VACUUM INTO` é seguro com WAL e não bloqueia leituras.
+- O app também grava um backup automático antes de qualquer migração pendente: `backup/pre-migrate-{versão-alvo}.db`. Banco novo não gera arquivo; se o mesmo upgrade for repetido, o backup existente é preservado.
 - Testar restore trimestralmente.
 
 ## Restore
@@ -211,9 +212,9 @@ Migrações pendentes rodam no start. Conferir `/history` e `/documents`.
 
 ## Upgrade
 
-1. Backup.
+1. Backup (recomendado mesmo com o backup automático; cobre também os originais).
 2. `docker compose pull && docker compose up -d`.
-3. O app copia o banco para `backup/pre-migrate-{versao}.db` e aplica migrações.
+3. Com migrações pendentes num banco existente, o app grava `backup/pre-migrate-{versão-alvo}.db` via `VACUUM INTO`, loga “backup pré-migração gravado” e só então aplica as migrações. Falha no backup aborta o start sem tocar no schema.
 4. Se o start falhar, o log indica a migração; restaurar o backup e abrir issue.
 
 Migrações são **forward-only**; downgrade não é suportado.
