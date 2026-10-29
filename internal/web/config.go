@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/giovani/readingdrip/internal/delivery"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/schedule"
 	"github.com/giovani/readingdrip/internal/web/views"
 )
@@ -173,7 +174,30 @@ func configDosValores(valores map[string]string) views.ConfigProps {
 		Prioridade:    texto(schedule.KeyNtfyPriority, strconv.Itoa(schedule.DefaultNtfyPriority)),
 		ModoCorpo:     texto(schedule.KeyNtfyBodyMode, string(delivery.BodyFull)),
 		MaxBytes:      texto(schedule.KeyNtfyMaxBytes, strconv.Itoa(schedule.DefaultMaxMessageBytes)),
+		PlanWPM:       texto(planconfig.KeyWPM, strconv.Itoa(planconfig.DefaultWPM)),
+		PlanDiff:      texto(planconfig.KeyDifficulty, decimal(planconfig.DefaultDifficulty)),
+		PlanMinFill:   texto(planconfig.KeyMinFill, decimal(planconfig.DefaultMinFill)),
+		PlanMaxOver:   texto(planconfig.KeyMaxOvershoot, decimal(planconfig.DefaultMaxOvershoot)),
+		PlanRecap:     planRecapDosValores(valores),
 	}
+}
+
+// planRecapDosValores mostra o checkbox de recap, aplicando o padrão quando a
+// chave está ausente ou ilegível.
+func planRecapDosValores(valores map[string]string) bool {
+	bruto := strings.TrimSpace(valores[planconfig.KeyRecap])
+	if bruto == "" {
+		return planconfig.DefaultRecap
+	}
+	v, err := strconv.ParseBool(bruto)
+	if err != nil {
+		return planconfig.DefaultRecap
+	}
+	return v
+}
+
+func decimal(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // configDoFormulario devolve os campos para re-render e as chaves para
@@ -188,31 +212,41 @@ func configDoFormulario(r *http.Request) (views.ConfigProps, map[string]string) 
 	}
 
 	props := views.ConfigProps{
-		Enabled:    strings.TrimSpace(r.PostFormValue("agenda_ligada")) != "",
-		Dias:       dias,
-		Horario:    strings.TrimSpace(r.PostFormValue("horario")),
-		Fuso:       strings.TrimSpace(r.PostFormValue("fuso")),
-		Catchup:    strings.TrimSpace(r.PostFormValue("catchup")),
-		MaxDocs:    strings.TrimSpace(r.PostFormValue("max_docs")),
-		NtfyURL:    strings.TrimSpace(r.PostFormValue("ntfy_url")),
-		NtfyTopico: strings.TrimSpace(r.PostFormValue("ntfy_topico")),
-		Prioridade: strings.TrimSpace(r.PostFormValue("ntfy_prioridade")),
-		ModoCorpo:  strings.TrimSpace(r.PostFormValue("modo_corpo")),
-		MaxBytes:   strings.TrimSpace(r.PostFormValue("max_bytes")),
+		Enabled:     strings.TrimSpace(r.PostFormValue("agenda_ligada")) != "",
+		Dias:        dias,
+		Horario:     strings.TrimSpace(r.PostFormValue("horario")),
+		Fuso:        strings.TrimSpace(r.PostFormValue("fuso")),
+		Catchup:     strings.TrimSpace(r.PostFormValue("catchup")),
+		MaxDocs:     strings.TrimSpace(r.PostFormValue("max_docs")),
+		NtfyURL:     strings.TrimSpace(r.PostFormValue("ntfy_url")),
+		NtfyTopico:  strings.TrimSpace(r.PostFormValue("ntfy_topico")),
+		Prioridade:  strings.TrimSpace(r.PostFormValue("ntfy_prioridade")),
+		ModoCorpo:   strings.TrimSpace(r.PostFormValue("modo_corpo")),
+		MaxBytes:    strings.TrimSpace(r.PostFormValue("max_bytes")),
+		PlanWPM:     strings.TrimSpace(r.PostFormValue("plan_wpm")),
+		PlanDiff:    strings.TrimSpace(r.PostFormValue("plan_dificuldade")),
+		PlanMinFill: strings.TrimSpace(r.PostFormValue("plan_min_fill")),
+		PlanMaxOver: strings.TrimSpace(r.PostFormValue("plan_max_overshoot")),
+		PlanRecap:   strings.TrimSpace(r.PostFormValue("plan_recap")) != "",
 	}
 
 	valores := map[string]string{
-		schedule.KeyEnabled:       strconv.FormatBool(props.Enabled),
-		schedule.KeyDays:          strings.Join(props.Dias, ","),
-		schedule.KeyTime:          props.Horario,
-		schedule.KeyTimezone:      props.Fuso,
-		schedule.KeyCatchupDays:   props.Catchup,
-		schedule.KeyMaxDocsPerRun: props.MaxDocs,
-		schedule.KeyNtfyBaseURL:   props.NtfyURL,
-		schedule.KeyNtfyTopic:     props.NtfyTopico,
-		schedule.KeyNtfyPriority:  props.Prioridade,
-		schedule.KeyNtfyBodyMode:  props.ModoCorpo,
-		schedule.KeyNtfyMaxBytes:  props.MaxBytes,
+		schedule.KeyEnabled:        strconv.FormatBool(props.Enabled),
+		schedule.KeyDays:           strings.Join(props.Dias, ","),
+		schedule.KeyTime:           props.Horario,
+		schedule.KeyTimezone:       props.Fuso,
+		schedule.KeyCatchupDays:    props.Catchup,
+		schedule.KeyMaxDocsPerRun:  props.MaxDocs,
+		schedule.KeyNtfyBaseURL:    props.NtfyURL,
+		schedule.KeyNtfyTopic:      props.NtfyTopico,
+		schedule.KeyNtfyPriority:   props.Prioridade,
+		schedule.KeyNtfyBodyMode:   props.ModoCorpo,
+		schedule.KeyNtfyMaxBytes:   props.MaxBytes,
+		planconfig.KeyWPM:          props.PlanWPM,
+		planconfig.KeyDifficulty:   props.PlanDiff,
+		planconfig.KeyMinFill:      props.PlanMinFill,
+		planconfig.KeyMaxOvershoot: props.PlanMaxOver,
+		planconfig.KeyRecap:        strconv.FormatBool(props.PlanRecap),
 	}
 
 	token := strings.TrimSpace(r.PostFormValue("ntfy_token"))

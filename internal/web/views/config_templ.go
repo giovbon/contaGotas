@@ -367,7 +367,69 @@ func Configuracoes(props ConfigProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</section><div class=\"acoes-form\"><button type=\"submit\">Salvar</button></div></form><section class=\"cartao\"><h2>Teste de entrega</h2><form method=\"post\" action=\"/settings/test\" class=\"form-teste\"><button class=\"botao secundario\" type=\"submit\">Enviar teste</button></form><p class=\"dica\">Usa a configuração salva, com uma única tentativa.</p></section></main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</section><section class=\"cartao\"><h2>Plano</h2><p class=\"dica\">Padrões para novos documentos e para a próxima extração. O ritmo (minutos ou dias) continua por documento.</p><div class=\"grade-campos\"><div class=\"campo\"><label for=\"plan_wpm\">Palavras por minuto (WPM)</label> <input id=\"plan_wpm\" name=\"plan_wpm\" type=\"number\" min=\"50\" max=\"1000\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(props.PlanWPM)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/config.templ`, Line: 127, Col: 100}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\" required><p class=\"dica\">Padrão 200; use 120–150 para texto técnico denso.</p></div><div class=\"campo\"><label for=\"plan_dificuldade\">Dificuldade</label> <input id=\"plan_dificuldade\" name=\"plan_dificuldade\" type=\"number\" min=\"0.5\" max=\"3\" step=\"0.05\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(props.PlanDiff)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/config.templ`, Line: 132, Col: 127}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\" required><p class=\"dica\">Multiplicador do tempo de leitura (0,5–3,0).</p></div><div class=\"campo\"><label for=\"plan_min_fill\">Preenchimento mínimo</label> <input id=\"plan_min_fill\" name=\"plan_min_fill\" type=\"number\" min=\"0.3\" max=\"0.95\" step=\"0.05\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var21 string
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(props.PlanMinFill)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/config.templ`, Line: 137, Col: 127}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\" required><p class=\"dica\">Fração do alvo abaixo da qual o trecho não fecha (0,30–0,95).</p></div><div class=\"campo\"><label for=\"plan_max_overshoot\">Estouro máximo</label> <input id=\"plan_max_overshoot\" name=\"plan_max_overshoot\" type=\"number\" min=\"1\" max=\"3\" step=\"0.05\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(props.PlanMaxOver)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/config.templ`, Line: 142, Col: 132}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\" required><p class=\"dica\">Fração do alvo que um trecho pode ultrapassar (1,00–3,00).</p></div></div><label class=\"check\"><input type=\"checkbox\" name=\"plan_recap\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if props.PlanRecap {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "> <span>Incluir “Onde paramos” (recap do trecho anterior)</span></label></section><div class=\"acoes-form\"><button type=\"submit\">Salvar</button></div></form><section class=\"cartao\"><h2>Teste de entrega</h2><form method=\"post\" action=\"/settings/test\" class=\"form-teste\"><button class=\"botao secundario\" type=\"submit\">Enviar teste</button></form><p class=\"dica\">Usa a configuração salva, com uma única tentativa.</p></section></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -375,7 +437,7 @@ func Configuracoes(props ConfigProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

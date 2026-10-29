@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/giovani/readingdrip/internal/delivery"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -83,11 +84,12 @@ type ReaderConfig struct {
 	DoneTTLDays int
 }
 
-// Settings agrega agenda, ntfy e leitor.
+// Settings agrega agenda, ntfy, leitor e padrões de plano.
 type Settings struct {
 	Schedule Config
 	Ntfy     NtfyConfig
 	Reader   ReaderConfig
+	Plan     planconfig.Config
 }
 
 // LinkTTLs devolve as validades em dias convertidas para duração.
@@ -131,6 +133,7 @@ func Parse(all map[string]string) (Settings, error) {
 			TTLDays:     DefaultReaderTTLDays,
 			DoneTTLDays: DefaultReaderDoneDays,
 		},
+		Plan: planconfig.Default(),
 	}
 
 	if bruto, ok := valor(all, KeyEnabled); ok {
@@ -188,6 +191,10 @@ func Parse(all map[string]string) (Settings, error) {
 		return Settings{}, err
 	}
 	if st.Reader.DoneTTLDays, err = diasDeLink(all, KeyReaderDoneTTLDays, st.Reader.DoneTTLDays); err != nil {
+		return Settings{}, err
+	}
+
+	if st.Plan, err = planconfig.Parse(all); err != nil {
 		return Settings{}, err
 	}
 

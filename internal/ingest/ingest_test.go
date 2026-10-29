@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/giovani/readingdrip/internal/ingest"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -75,6 +76,35 @@ func criarDocumento(t *testing.T, s *store.Store, doc store.Document) int64 {
 		t.Fatalf("criar documento: %v", err)
 	}
 	return id
+}
+
+func TestProcessUsaPadroesDePlano(t *testing.T) {
+	s, svc := abrirServico(t)
+	ctx := context.Background()
+	if err := s.Settings().SetMany(ctx, map[string]string{
+		planconfig.KeyMinFill:      "0.7",
+		planconfig.KeyMaxOvershoot: "2.0",
+	}, agora); err != nil {
+		t.Fatal(err)
+	}
+	id := criarDocumento(t, s, store.Document{
+		Title:      "Padrões",
+		SourcePath: escrever(t, "padroes.md", textoMarkdown()),
+	})
+
+	if _, err := svc.Process(ctx, id); err != nil {
+		t.Fatalf("processar: %v", err)
+	}
+	plano, err := s.Plans().Active(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plano == nil {
+		t.Fatal("plano ativo ausente")
+	}
+	if plano.Params.MinFill != 0.7 || plano.Params.MaxOvershoot != 2.0 {
+		t.Errorf("params = %+v, quer min_fill 0.7 e max_overshoot 2.0", plano.Params)
+	}
 }
 
 func TestProcessMarkdown(t *testing.T) {

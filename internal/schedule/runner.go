@@ -402,6 +402,7 @@ func (r *Runner) enviar(ctx context.Context, st Settings, pub Publisher, run *st
 	msgs, err := delivery.Compose(doses, delivery.Options{
 		BodyMode:        st.Ntfy.BodyMode,
 		MaxMessageBytes: st.Ntfy.MaxMessageBytes,
+		RecapDisabled:   !st.Plan.Recap,
 	})
 	if err != nil {
 		return RunResult{RunID: run.ID, RunDate: run.RunDate, Late: run.Late}, err

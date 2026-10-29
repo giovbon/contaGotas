@@ -56,6 +56,11 @@ type ConfigProps struct {
 	Prioridade    string
 	ModoCorpo     string
 	MaxBytes      string
+	PlanWPM       string
+	PlanDiff      string
+	PlanMinFill   string
+	PlanMaxOver   string
+	PlanRecap     bool
 	Salvo         bool
 	Erro          string
 	Teste         *TesteProps

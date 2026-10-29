@@ -12,6 +12,7 @@ import (
 	"github.com/giovani/readingdrip/internal/docs"
 	"github.com/giovani/readingdrip/internal/docs/pdf"
 	"github.com/giovani/readingdrip/internal/plan"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -105,7 +106,12 @@ func (s *Service) Process(ctx context.Context, documentID int64) (*Result, error
 		return nil, errors.Join(err, falha)
 	}
 
-	params, err := paramsDoDocumento(doc)
+	padroes, err := planconfig.Load(ctx, s.Store.Settings())
+	if err != nil {
+		falha := s.falhar(ctx, doc, store.StatusFailed, err.Error(), agora)
+		return nil, errors.Join(fmt.Errorf("ingest: ler padrões de plano: %w", err), falha)
+	}
+	params, err := paramsDoDocumento(doc, padroes)
 	if err != nil {
 		falha := s.falhar(ctx, doc, store.StatusFailed, err.Error(), agora)
 		return nil, errors.Join(err, falha)
@@ -182,17 +188,16 @@ func (s *Service) agora() time.Time {
 	return time.Now()
 }
 
-// paramsDoDocumento traduz os fatores de ritmo gravados no documento para os
-// parâmetros do plano. min_fill e max_overshoot ainda não são configuráveis
-// por documento: usam os padrões de docs/segmentation.md.
-func paramsDoDocumento(doc *store.Document) (plan.Params, error) {
+// paramsDoDocumento traduz os fatores de ritmo gravados no documento e os
+// padrões globais de plano para os parâmetros do segmentador.
+func paramsDoDocumento(doc *store.Document, padroes planconfig.Config) (plan.Params, error) {
 	params := plan.Params{
 		Mode:             plan.Mode(doc.PacingMode),
 		Minutes:          doc.PacingMinutes,
 		WPM:              doc.WPM,
 		Difficulty:       doc.Difficulty,
-		MinFill:          0.6,
-		MaxOvershoot:     1.4,
+		MinFill:          padroes.MinFill,
+		MaxOvershoot:     padroes.MaxOvershoot,
 		SectionAlignment: true,
 	}
 	switch params.Mode {

@@ -136,6 +136,7 @@ Regras aplicadas na composição:
 - Acima do limite, o app gera **uma mensagem por documento**; se um único chunk ainda passar, o corpo é cortado em 60% do limite, em fronteira de parágrafo ou palavra, sem quebrar rune UTF-8, e recebe `[…continua no leitor](link)`.
 - Truncamento e recap contam **caracteres** (runes), não bytes; o limite de envio conta bytes.
 - `body_mode` global pode ser sobrescrito por dose (`Dose.BodyMode`).
+- `plan.recap=false` desliga o “Onde paramos” (`Options.RecapDisabled`); o padrão é ligado, mantendo RF-041.
 - A composição não loga corpo nem token; quem publica deve logar apenas ids, bytes, status, latência e tentativas.
 
 ## Integração com o agendador

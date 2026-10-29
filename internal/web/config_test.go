@@ -46,16 +46,21 @@ func (r *remetenteFake) SendTest(context.Context) (delivery.SendResult, error) {
 
 func formConfig(extra url.Values) url.Values {
 	v := url.Values{
-		"dias":            {"mon", "tue", "wed", "thu", "fri"},
-		"horario":         {"07:00"},
-		"fuso":            {"America/Sao_Paulo"},
-		"catchup":         {"1"},
-		"max_docs":        {"5"},
-		"ntfy_url":        {"http://ntfy:8080"},
-		"ntfy_topico":     {"leitura"},
-		"ntfy_prioridade": {"3"},
-		"modo_corpo":      {"full"},
-		"max_bytes":       {"60000"},
+		"dias":               {"mon", "tue", "wed", "thu", "fri"},
+		"horario":            {"07:00"},
+		"fuso":               {"America/Sao_Paulo"},
+		"catchup":            {"1"},
+		"max_docs":           {"5"},
+		"ntfy_url":           {"http://ntfy:8080"},
+		"ntfy_topico":        {"leitura"},
+		"ntfy_prioridade":    {"3"},
+		"modo_corpo":         {"full"},
+		"max_bytes":          {"60000"},
+		"plan_wpm":           {"200"},
+		"plan_dificuldade":   {"1"},
+		"plan_min_fill":      {"0.6"},
+		"plan_max_overshoot": {"1.4"},
+		"plan_recap":         {"on"},
 	}
 	for k, vs := range extra {
 		v[k] = vs
@@ -115,6 +120,10 @@ func TestConfiguracoesMostraPadroes(t *testing.T) {
 		`name="ntfy_token"`,
 		`name="dias"`,
 		`value="mon"`,
+		`name="plan_wpm"`,
+		`name="plan_min_fill"`,
+		`name="plan_max_overshoot"`,
+		`name="plan_recap"`,
 		`action="/settings/test"`,
 		`token salvo`,
 	} {
@@ -135,13 +144,17 @@ func TestConfiguracoesSalva(t *testing.T) {
 	cookie := entrar(t, a, "/settings")
 
 	form := formConfig(url.Values{
-		"agenda_ligada": {"on"},
-		"horario":       {"21:45"},
-		"catchup":       {"3"},
-		"max_docs":      {"2"},
-		"ntfy_topico":   {"leituras"},
-		"ntfy_token":    {"tk_novo"},
-		"dias":          {"mon", "wed", "sun"},
+		"agenda_ligada":      {"on"},
+		"horario":            {"21:45"},
+		"catchup":            {"3"},
+		"max_docs":           {"2"},
+		"ntfy_topico":        {"leituras"},
+		"ntfy_token":         {"tk_novo"},
+		"dias":               {"mon", "wed", "sun"},
+		"plan_wpm":           {"250"},
+		"plan_dificuldade":   {"1.25"},
+		"plan_min_fill":      {"0.5"},
+		"plan_max_overshoot": {"1.6"},
 	})
 	resp := postForm(t, a, "/settings", form, cookie)
 	if resp.StatusCode != http.StatusSeeOther {
@@ -163,6 +176,10 @@ func TestConfiguracoesSalva(t *testing.T) {
 	}
 	if st.Ntfy.Topic != "leituras" || st.Ntfy.Token != "tk_novo" || st.Ntfy.Priority != 3 {
 		t.Errorf("ntfy = %+v", st.Ntfy)
+	}
+	if st.Plan.WPM != 250 || st.Plan.Difficulty != 1.25 || st.Plan.MinFill != 0.5 ||
+		st.Plan.MaxOvershoot != 1.6 || !st.Plan.Recap {
+		t.Errorf("plano = %+v", st.Plan)
 	}
 
 	// GET depois do POST mostra o sucesso e os valores salvos.
@@ -196,6 +213,44 @@ func TestConfiguracoesValorInvalidoNaoGrava(t *testing.T) {
 
 	if _, ok, err := a.store.Settings().Get(context.Background(), schedule.KeyTime); err != nil || ok {
 		t.Errorf("valor inválido não pode ser gravado: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestConfiguracoesPlanoInvalidoNaoGrava(t *testing.T) {
+	a, _ := ambienteComLogin(t)
+	cookie := entrar(t, a, "/settings")
+
+	resp := postForm(t, a, "/settings", formConfig(url.Values{"plan_min_fill": {"1.2"}}), cookie)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, quer 422", resp.StatusCode)
+	}
+	corpo := lerCorpo(t, resp)
+	if !strings.Contains(corpo, "plan.min_fill") {
+		t.Errorf("erro deveria citar a chave: %s", corpo)
+	}
+	if !strings.Contains(corpo, `value="1.2"`) {
+		t.Error("formulário deveria preservar o valor digitado")
+	}
+
+	if _, ok, err := a.store.Settings().Get(context.Background(), "plan.min_fill"); err != nil || ok {
+		t.Errorf("valor inválido não pode ser gravado: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestConfiguracoesDesligaRecap(t *testing.T) {
+	a, _ := ambienteComLogin(t)
+	cookie := entrar(t, a, "/settings")
+
+	resp := postForm(t, a, "/settings", formConfig(url.Values{"plan_recap": {}}), cookie)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	st, err := schedule.LoadSettings(context.Background(), a.store.Settings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Plan.Recap {
+		t.Error("recap deveria estar desligado")
 	}
 }
 

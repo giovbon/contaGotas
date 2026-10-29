@@ -16,6 +16,7 @@ import (
 
 	"github.com/giovani/readingdrip/internal/ingest"
 	"github.com/giovani/readingdrip/internal/library"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -114,6 +115,47 @@ func TestImporterMarkdown(t *testing.T) {
 	defer fila.mu.Unlock()
 	if len(fila.ids) != 1 || fila.ids[0] != doc.ID {
 		t.Errorf("fila = %v, quer [%d]", fila.ids, doc.ID)
+	}
+}
+
+func TestImporterAplicaPadroesDePlano(t *testing.T) {
+	s, imp, _, _ := abrirImportador(t)
+	ctx := context.Background()
+	if err := s.Settings().SetMany(ctx, map[string]string{
+		planconfig.KeyWPM:        "250",
+		planconfig.KeyDifficulty: "1.25",
+	}, agora); err != nil {
+		t.Fatal(err)
+	}
+
+	doc, err := imp.Import(ctx, library.Entrada{
+		Name:   "padroes.md",
+		Reader: strings.NewReader("# Padrões\n\nTexto.\n"),
+	})
+	if err != nil {
+		t.Fatalf("importar: %v", err)
+	}
+	if doc.WPM != 250 || doc.Difficulty != 1.25 {
+		t.Errorf("padrões = wpm %d, difficulty %v; quer 250 e 1.25", doc.WPM, doc.Difficulty)
+	}
+}
+
+func TestImporterPadraoInvalidoRecusa(t *testing.T) {
+	s, imp, _, _ := abrirImportador(t)
+	ctx := context.Background()
+	if err := s.Settings().Set(ctx, planconfig.KeyWPM, "9999", agora); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := imp.Import(ctx, library.Entrada{
+		Name:   "invalido.md",
+		Reader: strings.NewReader("# Inválido\n\nTexto.\n"),
+	})
+	if err == nil {
+		t.Fatal("importação deveria falhar com padrão de plano inválido")
+	}
+	if !strings.Contains(err.Error(), planconfig.KeyWPM) {
+		t.Fatalf("erro = %q, quer menção a %q", err, planconfig.KeyWPM)
 	}
 }
 

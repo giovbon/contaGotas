@@ -109,6 +109,21 @@ func TestComposeSemRecapNoPrimeiroChunk(t *testing.T) {
 	}
 }
 
+func TestComposeRecapDesligado(t *testing.T) {
+	d := doseBase()
+	d.Previous = []blocks.Block{{
+		Kind: blocks.KindParagraph,
+		Text: "Primeira frase do trecho. Segunda frase importante.",
+	}}
+	msgs, err := Compose([]Dose{d}, Options{RecapDisabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(msgs[0].Body, "Onde paramos") {
+		t.Errorf("recap deveria estar desligado:\n%s", msgs[0].Body)
+	}
+}
+
 func TestComposeMeioDeSecao(t *testing.T) {
 	d := doseBase()
 	d.Chunk.StartsMidSection = true

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -69,6 +70,9 @@ func TestLoadSettingsPadroes(t *testing.T) {
 	if st.Reader.TTLDays != DefaultReaderTTLDays || st.Reader.DoneTTLDays != DefaultReaderDoneDays {
 		t.Errorf("validade dos links = %+v", st.Reader)
 	}
+	if st.Plan != planconfig.Default() {
+		t.Errorf("plano = %+v, quer %+v", st.Plan, planconfig.Default())
+	}
 	if leitor, lido := st.LinkTTLs(); leitor != 180*24*time.Hour || lido != 30*24*time.Hour {
 		t.Errorf("TTLs = %v, %v", leitor, lido)
 	}
@@ -90,6 +94,11 @@ func TestLoadSettingsLeValores(t *testing.T) {
 	definir(t, s, KeyNtfyMaxBytes, "12000")
 	definir(t, s, KeyReaderTTLDays, "7")
 	definir(t, s, KeyReaderDoneTTLDays, "2")
+	definir(t, s, planconfig.KeyWPM, "240")
+	definir(t, s, planconfig.KeyDifficulty, "1.2")
+	definir(t, s, planconfig.KeyMinFill, "0.55")
+	definir(t, s, planconfig.KeyMaxOvershoot, "1.7")
+	definir(t, s, planconfig.KeyRecap, "false")
 
 	st, err := LoadSettings(context.Background(), s.Settings())
 	if err != nil {
@@ -122,6 +131,10 @@ func TestLoadSettingsLeValores(t *testing.T) {
 	if st.Reader.TTLDays != 7 || st.Reader.DoneTTLDays != 2 {
 		t.Errorf("validade dos links = %+v", st.Reader)
 	}
+	if st.Plan.WPM != 240 || st.Plan.Difficulty != 1.2 || st.Plan.MinFill != 0.55 ||
+		st.Plan.MaxOvershoot != 1.7 || st.Plan.Recap {
+		t.Errorf("plano = %+v", st.Plan)
+	}
 }
 
 func TestLoadSettingsInvalidos(t *testing.T) {
@@ -143,6 +156,9 @@ func TestLoadSettingsInvalidos(t *testing.T) {
 		{KeyReaderTTLDays, "4000"},
 		{KeyReaderTTLDays, "muitos"},
 		{KeyReaderDoneTTLDays, "-5"},
+		{planconfig.KeyWPM, "10"},
+		{planconfig.KeyMinFill, "1"},
+		{planconfig.KeyRecap, "talvez"},
 	}
 	for _, caso := range casos {
 		t.Run(caso.chave+"="+caso.valor, func(t *testing.T) {

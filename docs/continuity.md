@@ -52,7 +52,7 @@ Sem LLM, determinístico:
 4. Truncar em 240 caracteres **em fronteira de palavra** e acrescentar `…` se cortado.
 5. Prefixar com `↩︎ **Onde paramos:**`.
 
-Se houver só uma frase, ela é usada sozinha; se não houver prosa, o recap é omitido.
+Se houver só uma frase, ela é usada sozinha; se não houver prosa, o recap é omitido. A opção global `plan.recap` (padrão ligado) pode desligar o recap em `/settings`; com ela desligada, `Options.RecapDisabled` omite o bloco mesmo quando há chunk anterior.
 
 Casos de fallback:
 

@@ -19,6 +19,7 @@ seconds = round(base + ajuste + extras)
 
 - `wpm`: padrão **200** para português não-ficção; 120–150 para técnico denso.
 - `difficulty`: multiplicador por documento (padrão `1.0`).
+- Novos documentos herdam `plan.wpm` e `plan.difficulty` de `/settings` no momento da importação; documentos já criados mantêm os valores gravados. Ver [`segmentation.md`](./segmentation.md#parâmetros).
 - `round`: arredonda para o segundo; exibição em minutos usa `ceil` (nunca “0 min”).
 
 ## Custos fixos e variáveis

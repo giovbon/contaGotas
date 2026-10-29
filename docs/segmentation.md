@@ -68,6 +68,8 @@ Cada nó tem `Seconds = Σ blocos`. Fórmula em [`reading-time.md`](./reading-ti
 
 Derivados: `min = target × min_fill`, `max = target × max_overshoot`.
 
+`min_fill` e `max_overshoot` têm padrões globais em `/settings` (`plan.min_fill`, `plan.max_overshoot`, faixas 0,30–0,95 e 1,00–3,00). O valor é lido na extração e gravado em `params_json`; mudar depois só afeta o próximo reprocessamento/regeneração. WPM e dificuldade de cada documento novo vêm de `plan.wpm` (50–1000) e `plan.difficulty` (0,5–3,0); documentos existentes mantêm os próprios valores. O pacing (minutos/dias) continua por documento ([ADR-0009](./adr/0009-dois-modos-de-ritmo.md)).
+
 O corte de parágrafos longos acontece em [`blocks.Prepare`](../internal/blocks/normalize.go), não no segmentador — ver [ADR-0011](./adr/0011-paragrafos-longos-em-blocos.md).
 
 

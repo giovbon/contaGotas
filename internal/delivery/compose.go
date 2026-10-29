@@ -76,6 +76,9 @@ type Options struct {
 	BodyMode        BodyMode
 	MaxMessageBytes int
 	PreviewWords    int
+	// RecapDisabled omite o “Onde paramos”. O padrão (false) mantém o recap
+	// extrativo (RF-041); a configuração `plan.recap` pode desligá-lo.
+	RecapDisabled bool
 }
 
 func (o Options) normalizar() (Options, error) {
@@ -194,10 +197,12 @@ func composeDose(d Dose, opts Options, agrupado bool) string {
 	b.WriteString(metricas(d))
 	b.WriteString("`\n")
 
-	if recap := Recap(d.Previous); recap != "" {
-		b.WriteString("\n> ↩︎ **Onde paramos:** “")
-		b.WriteString(recap)
-		b.WriteString("”\n")
+	if !opts.RecapDisabled {
+		if recap := Recap(d.Previous); recap != "" {
+			b.WriteString("\n> ↩︎ **Onde paramos:** “")
+			b.WriteString(recap)
+			b.WriteString("”\n")
+		}
 	}
 
 	if d.Chunk.StartsMidSection {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/giovani/readingdrip/internal/docs"
+	"github.com/giovani/readingdrip/internal/planconfig"
 	"github.com/giovani/readingdrip/internal/store"
 )
 
@@ -157,6 +158,10 @@ func (i *Importer) Import(ctx context.Context, e Entrada) (*store.Document, erro
 	if titulo == "" {
 		titulo = "Documento"
 	}
+	padroes, err := planconfig.Load(ctx, i.Store.Settings())
+	if err != nil {
+		return nil, fmt.Errorf("library: ler padrões de plano: %w", err)
+	}
 	id, err := i.Store.Documents().Create(ctx, store.Document{
 		Title:        titulo,
 		Format:       string(format),
@@ -164,6 +169,8 @@ func (i *Importer) Import(ctx context.Context, e Entrada) (*store.Document, erro
 		SourcePath:   tmpPath,
 		SourceSHA256: sum,
 		Status:       store.StatusProcessing,
+		WPM:          padroes.WPM,
+		Difficulty:   padroes.Difficulty,
 		CreatedAt:    agora,
 		UpdatedAt:    agora,
 	})
