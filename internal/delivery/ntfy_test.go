@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -80,6 +81,52 @@ func TestPublishPayload(t *testing.T) {
 	}
 	if recebido.Click != msg.Click || len(recebido.Actions) != 2 {
 		t.Errorf("click/actions = %q / %+v", recebido.Click, recebido.Actions)
+	}
+}
+
+func TestPublishBasicAuth(t *testing.T) {
+	var usuario, senha string
+	var temBearer bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		usuario, senha, _ = r.BasicAuth()
+		temBearer = strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := clienteTeste(t, srv.URL, func(cfg *ClientConfig) {
+		cfg.Token = ""
+		cfg.Username = "leitor"
+		cfg.Password = "s3nh@ com espaço"
+	})
+	if _, err := c.Publish(context.Background(), Message{Body: "oi"}); err != nil {
+		t.Fatal(err)
+	}
+	if usuario != "leitor" || senha != "s3nh@ com espaço" {
+		t.Errorf("credenciais = %q/%q", usuario, senha)
+	}
+	if temBearer {
+		t.Error("Basic não pode mandar Bearer junto")
+	}
+}
+
+func TestPublishBasicTemPrecedencia(t *testing.T) {
+	var usuario string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		usuario, _, _ = r.BasicAuth()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := clienteTeste(t, srv.URL, func(cfg *ClientConfig) {
+		cfg.Username = "leitor"
+		cfg.Password = "segredo"
+	})
+	if _, err := c.Publish(context.Background(), Message{Body: "oi"}); err != nil {
+		t.Fatal(err)
+	}
+	if usuario != "leitor" {
+		t.Errorf("usuário = %q, quer Basic mesmo com token salvo", usuario)
 	}
 }
 

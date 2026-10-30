@@ -85,6 +85,15 @@ templ Configuracoes(props ConfigProps) {
 								<input id="ntfy_topico" name="ntfy_topico" value={ props.NtfyTopico } placeholder="leitura"/>
 							</div>
 							<div class="campo">
+								<label for="ntfy_usuario">Usuário (Basic)</label>
+								<input id="ntfy_usuario" name="ntfy_usuario" value={ props.NtfyUsuario } autocomplete="username" placeholder="usuário"/>
+							</div>
+							<div class="campo">
+								<label for="ntfy_senha">Senha (Basic)</label>
+								<input id="ntfy_senha" name="ntfy_senha" type="password" value="" autocomplete="new-password" placeholder={ senhaPlaceholder(props.SenhaDefinida) }/>
+								<p class="dica">Nunca é exibida. Em branco mantém a senha salva; limpar o usuário remove o Basic. Usuário e senha têm precedência sobre o token.</p>
+							</div>
+							<div class="campo">
 								<label for="ntfy_token">Token (Bearer)</label>
 								<input id="ntfy_token" name="ntfy_token" type="password" value="" autocomplete="new-password" placeholder={ tokenPlaceholder(props.TokenDefinido) }/>
 								<p class="dica">Nunca é exibido. Em branco mantém o token salvo.</p>
@@ -172,4 +181,11 @@ func tokenPlaceholder(definido bool) string {
 		return "token salvo"
 	}
 	return "sem token"
+}
+
+func senhaPlaceholder(definida bool) string {
+	if definida {
+		return "senha salva"
+	}
+	return "sem senha"
 }

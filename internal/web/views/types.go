@@ -53,6 +53,8 @@ type ConfigProps struct {
 	NtfyURL       string
 	NtfyTopico    string
 	TokenDefinido bool
+	NtfyUsuario   string
+	SenhaDefinida bool
 	Prioridade    string
 	ModoCorpo     string
 	MaxBytes      string

@@ -238,16 +238,16 @@ Só `POST`: abrir a URL no navegador responde `405`. Marcar de novo é idempoten
 Implementado: agenda, ntfy, padrões de plano e envio de teste.
 
 - **Agenda**: liga/desliga (`schedule.enabled`), dias da semana (`schedule.days`, checkbox por dia), horário (`schedule.time`, `<input type="time">`), fuso IANA (`schedule.timezone`), catch-up em dias de leitura (`schedule.catchup_days`) e documentos por run (`schedule.max_docs_per_run`).
-- **ntfy**: URL base (`ntfy.base_url`), tópico (`ntfy.topic`), token (`ntfy.token`, campo `password`), prioridade 1–5, modo de corpo (`full`/`preview`) e limite do corpo (`ntfy.max_message_bytes`, mínimo 1.000).
+- **ntfy**: URL base (`ntfy.base_url`), tópico (`ntfy.topic`), usuário e senha para HTTP Basic (`ntfy.username`/`ntfy.password`), token Bearer (`ntfy.token`, campo `password`), prioridade 1–5, modo de corpo (`full`/`preview`) e limite do corpo (`ntfy.max_message_bytes`, mínimo 1.000). Usuário e senha têm precedência sobre o token.
+- O token e a senha **nunca** são renderizados: os campos nascem vazios com o placeholder “token salvo”/“senha salva”. Em branco mantêm o valor atual; a caixa “Remover o token salvo” grava o token vazio. Limpar o usuário remove o Basic (usuário e senha juntos).
 - **Plano**: WPM (`plan.wpm`, 50–1000), dificuldade (`plan.difficulty`, 0,5–3,0), preenchimento mínimo (`plan.min_fill`, 0,30–0,95), estouro máximo (`plan.max_overshoot`, 1,00–3,00) e recap (`plan.recap`, checkbox). WPM/dificuldade valem para documentos **novos**; min/max valem na próxima extração/reprocessamento; o recap vale para o próximo envio. O pacing (minutos/dias) continua por documento.
-- O token **nunca** é renderizado: o campo nasce vazio com o placeholder “token salvo”. Em branco mantém o token atual; a caixa “Remover o token salvo” grava vazio.
 - A validação é a mesma do agendador (`schedule.Parse`), aplicada ao formulário inteiro antes de gravar; tudo entra em uma transação (`Settings.SetMany`). Valor inválido reexibe o formulário com o erro e não persiste nada.
 - `GET /settings` mostra os valores salvos (ou os padrões) e avisa quando a configuração salva é inválida, sem impedir a correção.
 - “Enviar teste” (`POST /settings/test`) publica a mensagem de teste no ntfy com a configuração **salva**, em uma única tentativa; a página volta com HTTP, latência e bytes, ou o motivo da falha.
 
 As validades dos links já são configuráveis pelas chaves `reader.link_ttl_days` (padrão 180) e `reader.done_ttl_days` (padrão 30), mas ainda não têm campo nesta tela; ver [`scheduling.md`](./scheduling.md#configurações).
 
-Ainda não implementado: plano (WPM, min/max, recaps), campos do leitor na UI e troca de senha.
+Ainda não implementado: campos do leitor na UI e troca de senha.
 
 Contrato de `/settings`:
 

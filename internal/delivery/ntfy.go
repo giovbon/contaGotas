@@ -45,6 +45,8 @@ type ClientConfig struct {
 	BaseURL         string
 	Topic           string
 	Token           string
+	Username        string
+	Password        string
 	Priority        int
 	Tags            []string
 	MaxAttempts     int
@@ -60,6 +62,8 @@ type Client struct {
 	baseURL    string
 	topic      string
 	token      string
+	username   string
+	password   string
 	priority   int
 	tags       []string
 	tentativas int
@@ -112,6 +116,8 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		baseURL:    strings.TrimRight(base, "/"),
 		topic:      topic,
 		token:      strings.TrimSpace(cfg.Token),
+		username:   strings.TrimSpace(cfg.Username),
+		password:   cfg.Password,
 		priority:   cfg.Priority,
 		tags:       append([]string(nil), cfg.Tags...),
 		tentativas: tentativas,
@@ -206,7 +212,10 @@ func (c *Client) enviar(ctx context.Context, corpo []byte) (int, time.Duration, 
 		return 0, 0, fmt.Errorf("ntfy: criar request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if c.token != "" {
+	switch {
+	case c.username != "":
+		req.SetBasicAuth(c.username, c.password)
+	case c.token != "":
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 

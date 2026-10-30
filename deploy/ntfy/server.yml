@@ -8,3 +8,6 @@ cache-file: "/var/cache/ntfy/cache.db"
 cache-duration: "48h"
 message-size-limit: "64k"
 behind-proxy: true
+# Autenticação opcional (docs/delivery-ntfy.md):
+# auth-file: "/var/cache/ntfy/auth.db"
+# auth-default-access: "deny-all"

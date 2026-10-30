@@ -1,4 +1,4 @@
-﻿# Bloco de código maior que a dose
+# Bloco de código maior que a dose
 
 ```go
 func etapa001() string { return "linha 1" }

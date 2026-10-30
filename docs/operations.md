@@ -1,7 +1,7 @@
 ---
 title: Operações
 status: ativo
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Operações
@@ -109,6 +109,17 @@ O build cross ARM64 e o smoke test foram executados num host amd64 com Docker 29
 
 O primeiro build **falhou** com bookworm (glibc 2.36) por causa dos símbolos `__isoc23_*` do MuPDF; a troca do builder para trixie resolveu. O container rodou sob emulação ARM64, então os tempos acima não valem como medição de performance nativa (`SPIKE-04`).
 
+## CI/CD (GitHub Actions)
+
+`.github/workflows/docker.yml` testa, compila e publica a imagem ARM64 no Docker Hub a cada push na `main`, em tag `v*` e em PR (em PR só valida, sem push):
+
+- **test** — `go test ./... -race`;
+- **image** — buildx com `--platform linux/arm64` e push (cache GHA). Tags geradas: `latest` (main), `<branch>`, `<sha>` e a versão da tag `v*`; `VERSION` vira label da imagem.
+
+Segredos do repositório: `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN` (PAT com permissão de write no Docker Hub). Sem eles o login falha em push na `main`/tag; em PR o build usa o nome padrão `readingdrip` e não publica.
+
+Para subir o que foi publicado, use o template [`/deploy/compose.template.yml`](../deploy/compose.template.yml): copie para o servidor, aponte `RD_IMAGE=<usuario>/readingdrip:latest` no `.env` e rode `docker compose up -d` (roteiro completo no cabeçalho do arquivo).
+
 ## Compose (`compose.yaml`)
 
 O `/compose.yaml` sobe `app`, `cloudflared` e `ntfy`; `/deploy/ntfy/server.yml` é a configuração de referência do ntfy e `/.env.example` lista as variáveis. O `.env` fica fora do Git.
@@ -125,7 +136,7 @@ docker compose logs -f app
 O app fica em `127.0.0.1:8080` (não exposto na internet) e o `cloudflared` só inicia depois de o healthcheck do app ficar `healthy`. Para usar uma imagem publicada em vez de compilar:
 
 ```sh
-RD_IMAGE=ghcr.io/<user>/readingdrip:latest docker compose up -d --no-build
+RD_IMAGE=<usuario-dockerhub>/readingdrip:latest docker compose up -d --no-build
 ```
 
 O arquivo usa a chave de topo `name:` e a sintaxe do Compose **v2**. O `docker-compose` v1 (Python) não o aceita; confira com `docker compose version` antes do deploy. A validação de 2026-10-29 cobriu a imagem e o container isolado (`read_only`, `tmpfs`, volume, healthcheck); o `compose.yaml` completo ainda depende do host com Compose v2 e das credenciais do Cloudflare.
@@ -161,9 +172,20 @@ cache-file: "/var/cache/ntfy/cache.db"
 cache-duration: "48h"
 message-size-limit: "64k"
 behind-proxy: true
+# auth-file: "/var/cache/ntfy/auth.db"
+# auth-default-access: "deny-all"
 ```
 
 Publicar `ntfy.exemplo.com` pelo mesmo túnel (hostname separado) ou por outro túnel. O app usa `http://ntfy:8080` internamente; o cache fica em `deploy/ntfy/cache` (fora do Git).
+
+Com autenticação ligada, crie o usuário e dê permissão de escrita só no tópico do app:
+
+```sh
+ntfy user add leitor
+ntfy access leitor leitura write-only
+```
+
+No app, preencha `ntfy.username`/`ntfy.password` em `/settings` (HTTP Basic) **ou** `ntfy.token` (Bearer). Basic tem precedência; o app nunca loga nem renderiza nenhum dos dois. Detalhes em [`delivery-ntfy.md`](./delivery-ntfy.md#publicação).
 
 ## Variáveis de ambiente
 
@@ -239,7 +261,7 @@ Migrações são **forward-only**; downgrade não é suportado.
 
 - [ ] `APP_PASSWORD` forte e exclusiva.
 - [ ] `APP_SECRET` aleatório (32+ bytes), fora do Git.
-- [ ] Token do ntfy com permissão só de publish no topic.
+- [ ] Credencial do ntfy (token ou usuário/senha) com permissão só de publish no topic.
 - [ ] Cloudflare Access ou auth do app ativa; bypass só nas rotas necessárias.
 - [ ] `read_only: true` + `tmpfs` no container.
 - [ ] Volume `/data` com owner 65532.

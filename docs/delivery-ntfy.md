@@ -1,7 +1,7 @@
 ---
 title: Entrega via ntfy
 status: ativo
-updated: 2026-10-27
+updated: 2026-10-30
 ---
 
 # Entrega via ntfy
@@ -19,6 +19,16 @@ cache-file: "/var/cache/ntfy/cache.db"
 cache-duration: "48h"
 message-size-limit: "64k"        # padrão é 4k
 behind-proxy: true
+# Com autenticação (opcional):
+# auth-file: "/var/cache/ntfy/auth.db"
+# auth-default-access: "deny-all"
+```
+
+Com `auth-default-access: "deny-all"`, crie um usuário e libere escrita no tópico usado pelo app:
+
+```sh
+ntfy user add leitor          # pede a senha
+ntfy access leitor leitura write-only
 ```
 
 > O app fala com o ntfy pela URL **interna** (`http://ntfy:8080`) e usa a URL pública apenas nos links. Isso evita round-trip pela Cloudflare e funciona mesmo se o túnel cair.
@@ -32,11 +42,13 @@ Lidas do banco a cada tick (`schedule.LoadSettings`, ver [`scheduling.md`](./sch
 | `ntfy.base_url` | vazio | URL interna do ntfy, com `http(s)`; obrigatória para enviar |
 | `ntfy.topic` | vazio | tópico de publicação; obrigatório para enviar |
 | `ntfy.token` | vazio | Bearer opcional; nunca logado nem renderizado |
+| `ntfy.username` | vazio | usuário do HTTP Basic; junto com `ntfy.password` tem precedência sobre o token |
+| `ntfy.password` | vazio | senha do HTTP Basic; nunca logada nem renderizada |
 | `ntfy.priority` | `3` | inteiro de 1 a 5 |
 | `ntfy.body_mode` | `full` | `full` ou `preview` |
 | `ntfy.max_message_bytes` | `60000` | limite do corpo; mínimo 1.000 |
 
-Sem `base_url` ou `topic`, o tick não cria run e reporta `ntfy não configurado`. Valor inválido (prioridade fora de 1..5, modo desconhecido, limite abaixo do piso) falha o tick com erro citando a chave.
+Sem `base_url` ou `topic`, o tick não cria run e reporta `ntfy não configurado`. Valor inválido (prioridade fora de 1..5, modo desconhecido, limite abaixo do piso) falha o tick com erro citando a chave. `ntfy.username` e `ntfy.password` são um par: um sem o outro falha com erro citando as duas chaves.
 
 ## Publicação
 
@@ -67,7 +79,7 @@ Sem `base_url` ou `topic`, o tick não cria run e reporta `ntfy não configurado
 }
 ```
 
-Autenticação: `Authorization: Bearer tk_…` quando o ntfy exigir token. Nunca logar o token.
+Autenticação: `Authorization: Basic base64(usuário:senha)` quando `ntfy.username`/`ntfy.password` estão configurados; senão `Authorization: Bearer tk_…` com `ntfy.token`. Basic tem precedência sobre o token. Nunca logar token nem senha.
 
 ## Modos de corpo
 
@@ -127,7 +139,7 @@ Exceções: **envio manual** (`POST /documents/{id}/send-now`) e **envio de test
 `internal/delivery` expõe dois componentes independentes:
 
 - `Compose(doses, opts)` monta `[]Message` sem I/O nem relógio. Cada `Dose` traz o chunk, os blocos do trecho atual, do anterior (recap) e do próximo (rodapé), já recortados pelo chamador. Uma dose vira uma mensagem; várias doses viram uma mensagem agrupada com seções `## 📖 {documento} · {autor}` separadas por `---` (RF-053).
-- `NewClient(cfg)` + `Publish(ctx, msg)` publicam via JSON com `markdown: true`, `Authorization: Bearer` opcional e retry classificado. `Publish` mede o corpo em bytes UTF-8 e recusa acima de `MaxMessageBytes` antes de qualquer request (`ErrMessageTooLarge`).
+- `NewClient(cfg)` + `Publish(ctx, msg)` publicam via JSON com `markdown: true`, HTTP Basic (usuário/senha) ou `Authorization: Bearer` opcional e retry classificado. `Publish` mede o corpo em bytes UTF-8 e recusa acima de `MaxMessageBytes` antes de qualquer request (`ErrMessageTooLarge`).
 
 Regras aplicadas na composição:
 
@@ -180,7 +192,7 @@ nada no banco: `{exp}.{hex}`, onde `exp` é o Unix de expiração e `hex` é
 
 ## Segurança
 
-- Token do ntfy só no banco (nunca em logs ou HTML).
+- Token e senha do ntfy só no banco (nunca em logs ou HTML).
 - O endpoint de ação é `noindex`, sem CORS.
 - Se Cloudflare Access estiver na frente do domínio, criar **bypass** para `/r/*` e `/api/actions/*` — ou não usar Access e confiar na auth do app.
 - O campo `click` e as ações usam os links assinados descritos acima; a página do leitor nunca loga o corpo lido.
@@ -214,6 +226,7 @@ O teste não usa `Runner.Links`: sai sem `click`, sem ações e sem link de leit
 |---|---|
 | Payload JSON correto | `httptest.Server` capturando body |
 | Autenticação | header `Authorization` presente |
+| Basic auth | usuário/senha viram `Authorization: Basic` e têm precedência sobre o token |
 | Markdown habilitado | campo `markdown: true` |
 | Limite de bytes | corpo acima do limite → split |
 | Retry 5xx | 2 falhas + 1 sucesso = 3 tentativas |

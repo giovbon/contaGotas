@@ -640,6 +640,8 @@ func (r *Runner) publisherCom(cfg NtfyConfig, tentativas int) (Publisher, error)
 		BaseURL:         cfg.BaseURL,
 		Topic:           cfg.Topic,
 		Token:           cfg.Token,
+		Username:        cfg.Username,
+		Password:        cfg.Password,
 		Priority:        cfg.Priority,
 		MaxAttempts:     tentativas,
 		MaxMessageBytes: cfg.MaxMessageBytes,

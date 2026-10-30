@@ -18,6 +18,7 @@ Instruções para agentes de IA que trabalham neste repositório.
 - Decisão estrutural nova → ADR em `docs/adr/`; dúvida → `docs/open-questions.md`. Nada de `TODO` solto.
 - Não logue corpo de leitura, tokens ou `APP_SECRET`.
 - Sem dependência nova sem ADR.
+- Preocupação com o uso de tokens: com o projeto usa intensivamente agentes de ia, o uso excessivo de tokens (principalmente pela documentação extensa existente) deve ser evitado a todo custo.
 
 ## Comandos
 

@@ -25,6 +25,8 @@ const (
 	KeyNtfyBaseURL       = "ntfy.base_url"
 	KeyNtfyTopic         = "ntfy.topic"
 	KeyNtfyToken         = "ntfy.token"
+	KeyNtfyUsername      = "ntfy.username"
+	KeyNtfyPassword      = "ntfy.password"
 	KeyNtfyPriority      = "ntfy.priority"
 	KeyNtfyBodyMode      = "ntfy.body_mode"
 	KeyNtfyMaxBytes      = "ntfy.max_message_bytes"
@@ -73,6 +75,8 @@ type NtfyConfig struct {
 	BaseURL         string
 	Topic           string
 	Token           string
+	Username        string
+	Password        string
 	Priority        int
 	BodyMode        delivery.BodyMode
 	MaxMessageBytes int
@@ -201,6 +205,15 @@ func Parse(all map[string]string) (Settings, error) {
 	st.Ntfy.BaseURL, _ = valor(all, KeyNtfyBaseURL)
 	st.Ntfy.Topic, _ = valor(all, KeyNtfyTopic)
 	st.Ntfy.Token, _ = valor(all, KeyNtfyToken)
+	st.Ntfy.Username, _ = valor(all, KeyNtfyUsername)
+	// Senha é opaca: não passa por trim para não alterar o valor salvo.
+	if bruto, ok := all[KeyNtfyPassword]; ok {
+		st.Ntfy.Password = bruto
+	}
+	if (st.Ntfy.Username == "") != (st.Ntfy.Password == "") {
+		return Settings{}, fmt.Errorf("schedule: %s e %s devem ser preenchidos juntos",
+			KeyNtfyUsername, KeyNtfyPassword)
+	}
 
 	if bruto, ok := valor(all, KeyNtfyPriority); ok {
 		n, err := strconv.Atoi(bruto)

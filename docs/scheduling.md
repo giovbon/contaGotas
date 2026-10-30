@@ -21,7 +21,7 @@ Um ticker em processo verifica a cada 60 s se é hora de entregar. Sem cron exte
 
 As chaves do leitor são `reader.link_ttl_days` (padrão 180) e `reader.done_ttl_days` (padrão 30), em dias, aceitando 1..3650; `Settings.LinkTTLs()` devolve as duas como `time.Duration`. Elas alimentam `Runner.Links`, que monta as URLs assinadas de cada dose (ver [`delivery-ntfy.md`](./delivery-ntfy.md#links-assinados)).
 
-As chaves de entrega (`ntfy.base_url`, `ntfy.topic`, `ntfy.token`, `ntfy.priority`, `ntfy.body_mode`, `ntfy.max_message_bytes`) estão em [`delivery-ntfy.md`](./delivery-ntfy.md). Todas são lidas do banco a cada tick por `schedule.LoadSettings`; valor inválido devolve erro citando a chave, sem correção silenciosa. O agendador não cria run enquanto `ntfy.base_url` ou `ntfy.topic` estiverem vazios. A UI de configurações usa o mesmo `schedule.Parse` antes de gravar, então nenhum valor que o tick recusaria chega ao banco.
+As chaves de entrega (`ntfy.base_url`, `ntfy.topic`, `ntfy.token`, `ntfy.username`, `ntfy.password`, `ntfy.priority`, `ntfy.body_mode`, `ntfy.max_message_bytes`) estão em [`delivery-ntfy.md`](./delivery-ntfy.md). Todas são lidas do banco a cada tick por `schedule.LoadSettings`; valor inválido devolve erro citando a chave, sem correção silenciosa. O agendador não cria run enquanto `ntfy.base_url` ou `ntfy.topic` estiverem vazios. A UI de configurações usa o mesmo `schedule.Parse` antes de gravar, então nenhum valor que o tick recusaria chega ao banco.
 
 ## Ciclo
 

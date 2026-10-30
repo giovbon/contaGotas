@@ -103,6 +103,12 @@ func TestConfiguracoesMostraPadroes(t *testing.T) {
 	if err := a.store.Settings().Set(ctx, schedule.KeyNtfyToken, "tk_segredo", agora); err != nil {
 		t.Fatal(err)
 	}
+	if err := a.store.Settings().Set(ctx, schedule.KeyNtfyUsername, "leitor", agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.Settings().Set(ctx, schedule.KeyNtfyPassword, "s3nh@", agora); err != nil {
+		t.Fatal(err)
+	}
 	cookie := entrar(t, a, "/settings")
 
 	resp := getComCookies(t, a, "/settings", cookie)
@@ -118,6 +124,9 @@ func TestConfiguracoesMostraPadroes(t *testing.T) {
 		`name="fuso"`,
 		`value="America/Sao_Paulo"`,
 		`name="ntfy_token"`,
+		`name="ntfy_usuario"`,
+		`value="leitor"`,
+		`name="ntfy_senha"`,
 		`name="dias"`,
 		`value="mon"`,
 		`name="plan_wpm"`,
@@ -126,6 +135,7 @@ func TestConfiguracoesMostraPadroes(t *testing.T) {
 		`name="plan_recap"`,
 		`action="/settings/test"`,
 		`token salvo`,
+		`senha salva`,
 	} {
 		if !strings.Contains(corpo, trecho) {
 			t.Errorf("página sem %q", trecho)
@@ -133,6 +143,9 @@ func TestConfiguracoesMostraPadroes(t *testing.T) {
 	}
 	if strings.Contains(corpo, "tk_segredo") {
 		t.Error("token não pode ser renderizado")
+	}
+	if strings.Contains(corpo, "s3nh@") {
+		t.Error("senha não pode ser renderizada")
 	}
 	if !strings.Contains(corpo, `checked`) {
 		t.Error("dias/agendador deveriam vir marcados nos padrões")
@@ -150,6 +163,8 @@ func TestConfiguracoesSalva(t *testing.T) {
 		"max_docs":           {"2"},
 		"ntfy_topico":        {"leituras"},
 		"ntfy_token":         {"tk_novo"},
+		"ntfy_usuario":       {"leitor"},
+		"ntfy_senha":         {"s3nh@"},
 		"dias":               {"mon", "wed", "sun"},
 		"plan_wpm":           {"250"},
 		"plan_dificuldade":   {"1.25"},
@@ -176,6 +191,9 @@ func TestConfiguracoesSalva(t *testing.T) {
 	}
 	if st.Ntfy.Topic != "leituras" || st.Ntfy.Token != "tk_novo" || st.Ntfy.Priority != 3 {
 		t.Errorf("ntfy = %+v", st.Ntfy)
+	}
+	if st.Ntfy.Username != "leitor" || st.Ntfy.Password != "s3nh@" {
+		t.Errorf("ntfy basic = %+v", st.Ntfy)
 	}
 	if st.Plan.WPM != 250 || st.Plan.Difficulty != 1.25 || st.Plan.MinFill != 0.5 ||
 		st.Plan.MaxOvershoot != 1.6 || !st.Plan.Recap {
@@ -278,6 +296,43 @@ func TestConfiguracoesToken(t *testing.T) {
 	}
 	if v, ok, _ := a.store.Settings().Get(ctx, schedule.KeyNtfyToken); !ok || v != "" {
 		t.Errorf("token = %q (ok=%v), quer vazio", v, ok)
+	}
+}
+
+func TestConfiguracoesBasicAuth(t *testing.T) {
+	a, _ := ambienteComLogin(t)
+	cookie := entrar(t, a, "/settings")
+	ctx := context.Background()
+	if err := a.store.Settings().Set(ctx, schedule.KeyNtfyUsername, "leitor", agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.Settings().Set(ctx, schedule.KeyNtfyPassword, "s3nh@", agora); err != nil {
+		t.Fatal(err)
+	}
+
+	// Senha em branco mantém a salva e grava o usuário novo.
+	resp := postForm(t, a, "/settings", formConfig(url.Values{"ntfy_usuario": {"leitor2"}}), cookie)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	st, err := schedule.LoadSettings(ctx, a.store.Settings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Ntfy.Username != "leitor2" || st.Ntfy.Password != "s3nh@" {
+		t.Errorf("basic = %+v, quer manter a senha", st.Ntfy)
+	}
+
+	// Limpar o usuário remove o Basic inteiro.
+	resp = postForm(t, a, "/settings", formConfig(nil), cookie)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if v, ok, _ := a.store.Settings().Get(ctx, schedule.KeyNtfyUsername); !ok || v != "" {
+		t.Errorf("usuário = %q (ok=%v), quer vazio", v, ok)
+	}
+	if v, ok, _ := a.store.Settings().Get(ctx, schedule.KeyNtfyPassword); !ok || v != "" {
+		t.Errorf("senha = %q (ok=%v), quer vazio", v, ok)
 	}
 }
 

@@ -55,7 +55,8 @@ func TestLoadSettingsPadroes(t *testing.T) {
 	if len(st.Schedule.Days) != 5 || st.Schedule.Days[0] != time.Monday || st.Schedule.Days[4] != time.Friday {
 		t.Errorf("dias = %v", st.Schedule.Days)
 	}
-	if st.Ntfy.BaseURL != "" || st.Ntfy.Topic != "" || st.Ntfy.Token != "" {
+	if st.Ntfy.BaseURL != "" || st.Ntfy.Topic != "" || st.Ntfy.Token != "" ||
+		st.Ntfy.Username != "" || st.Ntfy.Password != "" {
 		t.Errorf("ntfy deveria vir vazio: %+v", st.Ntfy)
 	}
 	if st.Ntfy.Priority != DefaultNtfyPriority {
@@ -89,6 +90,8 @@ func TestLoadSettingsLeValores(t *testing.T) {
 	definir(t, s, KeyNtfyBaseURL, "http://ntfy:8080")
 	definir(t, s, KeyNtfyTopic, "leitura")
 	definir(t, s, KeyNtfyToken, "tk_segredo")
+	definir(t, s, KeyNtfyUsername, "leitor")
+	definir(t, s, KeyNtfyPassword, "s3nh@")
 	definir(t, s, KeyNtfyPriority, "5")
 	definir(t, s, KeyNtfyBodyMode, "preview")
 	definir(t, s, KeyNtfyMaxBytes, "12000")
@@ -124,6 +127,9 @@ func TestLoadSettingsLeValores(t *testing.T) {
 	}
 	if st.Ntfy.BaseURL != "http://ntfy:8080" || st.Ntfy.Topic != "leitura" || st.Ntfy.Token != "tk_segredo" {
 		t.Errorf("ntfy = %+v", st.Ntfy)
+	}
+	if st.Ntfy.Username != "leitor" || st.Ntfy.Password != "s3nh@" {
+		t.Errorf("ntfy basic = %+v", st.Ntfy)
 	}
 	if st.Ntfy.Priority != 5 || st.Ntfy.BodyMode != "preview" || st.Ntfy.MaxMessageBytes != 12000 {
 		t.Errorf("ntfy entrega = %+v", st.Ntfy)
@@ -166,6 +172,23 @@ func TestLoadSettingsInvalidos(t *testing.T) {
 			definir(t, s, caso.chave, caso.valor)
 			if _, err := LoadSettings(context.Background(), s.Settings()); err == nil {
 				t.Fatalf("%s=%q deveria falhar", caso.chave, caso.valor)
+			}
+		})
+	}
+}
+
+func TestLoadSettingsBasicAuthIncompleto(t *testing.T) {
+	casos := []struct {
+		nome    string
+		valores map[string]string
+	}{
+		{"usuario sem senha", map[string]string{KeyNtfyUsername: "leitor"}},
+		{"senha sem usuario", map[string]string{KeyNtfyPassword: "s3nh@"}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nome, func(t *testing.T) {
+			if _, err := Parse(caso.valores); err == nil {
+				t.Fatalf("%v deveria falhar", caso.valores)
 			}
 		})
 	}

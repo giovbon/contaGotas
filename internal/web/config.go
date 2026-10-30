@@ -80,6 +80,20 @@ func (s *Server) handleSalvarConfiguracoes(w http.ResponseWriter, r *http.Reques
 	}
 
 	props, valores := configDoFormulario(r)
+	// A senha em branco mantém a salva; o Parse valida o par usuário/senha
+	// completo, então o valor salvo entra na validação sem ser reescrito pela UI.
+	if _, ok := valores[schedule.KeyNtfyPassword]; !ok {
+		salva, existe, err := s.Store.Settings().Get(r.Context(), schedule.KeyNtfyPassword)
+		if err != nil {
+			s.logger().Error("ler senha do ntfy", "erro", err)
+			s.renderErro(w, r, http.StatusInternalServerError, "Não foi possível carregar as configurações")
+			return
+		}
+		if existe {
+			valores[schedule.KeyNtfyPassword] = salva
+			props.SenhaDefinida = true
+		}
+	}
 	if _, err := schedule.Parse(valores); err != nil {
 		props.Erro = truncarMotivo(err.Error(), motivoMax)
 		s.render(w, r, http.StatusUnprocessableEntity, views.Configuracoes(props))
@@ -171,6 +185,8 @@ func configDosValores(valores map[string]string) views.ConfigProps {
 		NtfyURL:       strings.TrimSpace(valores[schedule.KeyNtfyBaseURL]),
 		NtfyTopico:    strings.TrimSpace(valores[schedule.KeyNtfyTopic]),
 		TokenDefinido: tokenDefinido(valores),
+		NtfyUsuario:   strings.TrimSpace(valores[schedule.KeyNtfyUsername]),
+		SenhaDefinida: senhaDefinida(valores),
 		Prioridade:    texto(schedule.KeyNtfyPriority, strconv.Itoa(schedule.DefaultNtfyPriority)),
 		ModoCorpo:     texto(schedule.KeyNtfyBodyMode, string(delivery.BodyFull)),
 		MaxBytes:      texto(schedule.KeyNtfyMaxBytes, strconv.Itoa(schedule.DefaultMaxMessageBytes)),
@@ -220,6 +236,7 @@ func configDoFormulario(r *http.Request) (views.ConfigProps, map[string]string) 
 		MaxDocs:     strings.TrimSpace(r.PostFormValue("max_docs")),
 		NtfyURL:     strings.TrimSpace(r.PostFormValue("ntfy_url")),
 		NtfyTopico:  strings.TrimSpace(r.PostFormValue("ntfy_topico")),
+		NtfyUsuario: strings.TrimSpace(r.PostFormValue("ntfy_usuario")),
 		Prioridade:  strings.TrimSpace(r.PostFormValue("ntfy_prioridade")),
 		ModoCorpo:   strings.TrimSpace(r.PostFormValue("modo_corpo")),
 		MaxBytes:    strings.TrimSpace(r.PostFormValue("max_bytes")),
@@ -239,6 +256,7 @@ func configDoFormulario(r *http.Request) (views.ConfigProps, map[string]string) 
 		schedule.KeyMaxDocsPerRun:  props.MaxDocs,
 		schedule.KeyNtfyBaseURL:    props.NtfyURL,
 		schedule.KeyNtfyTopic:      props.NtfyTopico,
+		schedule.KeyNtfyUsername:   props.NtfyUsuario,
 		schedule.KeyNtfyPriority:   props.Prioridade,
 		schedule.KeyNtfyBodyMode:   props.ModoCorpo,
 		schedule.KeyNtfyMaxBytes:   props.MaxBytes,
@@ -258,6 +276,17 @@ func configDoFormulario(r *http.Request) (views.ConfigProps, map[string]string) 
 		valores[schedule.KeyNtfyToken] = token
 		props.TokenDefinido = true
 	}
+
+	senha := r.PostFormValue("ntfy_senha")
+	switch {
+	case props.NtfyUsuario == "":
+		// Basic exige usuário; apagar a senha junto evita configuração órfã.
+		valores[schedule.KeyNtfyPassword] = ""
+		props.SenhaDefinida = false
+	case senha != "":
+		valores[schedule.KeyNtfyPassword] = senha
+		props.SenhaDefinida = true
+	}
 	return props, valores
 }
 
@@ -276,6 +305,10 @@ func idsDosDias(bruto string) []string {
 
 func tokenDefinido(valores map[string]string) bool {
 	return strings.TrimSpace(valores[schedule.KeyNtfyToken]) != ""
+}
+
+func senhaDefinida(valores map[string]string) bool {
+	return valores[schedule.KeyNtfyPassword] != ""
 }
 
 // testeDaQuery monta o resultado do envio de teste que voltou pelo redirect.

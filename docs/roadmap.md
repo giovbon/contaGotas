@@ -57,7 +57,7 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] worker de extração (1 por vez) + status
 - [x] persistência de plano e chunks
 - [x] UI: biblioteca, detalhe, preview do plano
-- [ ] configurações: ntfy, agenda, plano (agenda e ntfy prontos; falta plano)
+- [x] configurações: ntfy, agenda e plano (WPM, dificuldade, min/max, recap)
 - [x] entrypoint HTTP (`cmd/app`) com wiring de config, store, auth, importador e fila
 - [x] composição da mensagem (breadcrumb, recap, rodapé)
 - [x] cliente ntfy com retry (sem envio de teste nem “enviar agora”)
@@ -145,7 +145,7 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [ ] rotação de `APP_SECRET` com regeneração de links
 - [ ] checklist de segurança aplicado
 - [ ] documentação de upgrade
-- [ ] pipeline de release (multi-arch? foco arm64)
+- [x] pipeline de release (GitHub Actions → Docker Hub, foco arm64; 2026-10-30)
 - [ ] teste de carga com 50 documentos
 
 **Saída:** upgrade de versão sem perda de dados e restore validado em container limpo.
@@ -162,4 +162,4 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## Próximo passo imediato
 
-Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível. Depois da validação, o próximo trabalho de produto é o aviso de pacing inviável (FASE-2) e as configurações de plano (FASE-3); `SPIKE-04` segue aberto e não bloqueia.
+Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível. Depois da validação, a FASE-1 fecha; a FASE-2 só depende da semana de entregas automáticas com restart no meio. `SPIKE-04` segue aberto e não bloqueia.

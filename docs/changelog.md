@@ -1,12 +1,39 @@
 ---
 title: Changelog
 status: ativo
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Changelog
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
+
+## 2026-10-30 — CI/CD para Docker Hub e template de deploy
+
+**Adicionado**
+- `.github/workflows/docker.yml`: testa (`go test ./... -race`), compila e publica a imagem `linux/arm64` no Docker Hub a cada push na `main`, tag `v*` e dispatch manual; em PR só valida (build sem push). Tags: `latest`, `<branch>`, `<sha>` e versão; cache GHA no buildx. Segredos `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`.
+- `/deploy/compose.template.yml`: template de deploy que usa a imagem publicada (sem build local), com `app` + `cloudflared` + `ntfy`, `read_only`, healthcheck e roteiro de uso no cabeçalho.
+
+**Corrigido**
+- [`web-ui.md`](./web-ui.md) e [`context.md`](./context.md): as configurações de plano (WPM, dificuldade, `min_fill`, `max_overshoot`, recap) já estão em `/settings` desde 1.10 — a doc dizia que ficavam para a FASE-3.
+
+**Documentação**
+- [`operations.md`](./operations.md) — seção “CI/CD (GitHub Actions)” e referência ao template.
+- [`roadmap.md`](./roadmap.md) — item “configurações de plano” concluído; “pipeline de release” concluído com o workflow.
+
+## 2026-10-30 — autenticação do ntfy por usuário e senha
+
+**Adicionado**
+- HTTP Basic no cliente ntfy: novas chaves `ntfy.username`/`ntfy.password`, lidas por `schedule.LoadSettings` e enviadas como `Authorization: Basic`. Quando o par está preenchido, tem precedência sobre `ntfy.token` (Bearer).
+- Campos “Usuário (Basic)” e “Senha (Basic)” em `/settings`; a senha nunca é renderizada, em branco mantém a salva e limpar o usuário remove o par. O par incompleto falha a validação citando as duas chaves.
+- Entrada comentada de `auth-file`/`auth-default-access` em `deploy/ntfy/server.yml` e comandos `ntfy user add`/`ntfy access` para liberar só escrita no tópico.
+
+**Testes**
+- `TestPublishBasicAuth` e `TestPublishBasicTemPrecedencia` no cliente; par usuário/senha em `settings_test` e no fluxo de `/settings`.
+
+**Documentação**
+- [`delivery-ntfy.md`](./delivery-ntfy.md) — chaves, precedência, configuração do servidor com auth e testes.
+- [`scheduling.md`](./scheduling.md), [`web-ui.md`](./web-ui.md) e [`operations.md`](./operations.md) — chaves, campos da tela, operação e checklist.
 
 ## 2026-10-29 — validação da imagem ARM64 e correção do builder
 
