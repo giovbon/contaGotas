@@ -19,6 +19,13 @@ type Store struct {
 	db *sql.DB
 }
 
+// consulta é o subconjunto de *sql.DB e *sql.Tx usado pelos leitores que
+// precisam rodar dentro de uma transação (edição de fronteiras, RF-023).
+type consulta interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 // Options controla a abertura do banco. A zero value mantém o comportamento de
 // Open: sem backup pré-migração.
 type Options struct {

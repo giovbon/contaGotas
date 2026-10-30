@@ -32,12 +32,19 @@ type Replanner interface {
 	Replan(ctx context.Context, documentID int64, req ingest.ReplanRequest) (*ingest.ReplanResult, error)
 }
 
+// BoundaryEditor edita fronteiras do plano ativo (RF-023). *ingest.Service
+// implementa.
+type BoundaryEditor interface {
+	EditBoundary(ctx context.Context, chunkID int64, req ingest.BoundaryRequest) (*ingest.BoundaryResult, error)
+}
+
 // Server agrega as dependências das rotas.
 type Server struct {
 	Store        *store.Store
 	Importer     *library.Importer
 	Queue        Enqueuer            // nil → reprocessar responde 503
 	Replanner    Replanner           // nil → regenerar plano responde 503
+	Editor       BoundaryEditor      // nil → editar fronteira responde 503
 	Sessions     *auth.Authenticator // nil → usa Auth; sem nenhum, 401 (fail closed)
 	Auth         Middleware          // middleware extra para testes de pass-through
 	Sender       Sender              // nil → envio manual e teste respondem 503
@@ -57,6 +64,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /documents/{id}", s.protegido(http.HandlerFunc(s.handleDocumento)))
 	mux.Handle("GET /documents/{id}/plan", s.protegido(http.HandlerFunc(s.handlePlano)))
 	mux.Handle("POST /documents/{id}/plan/regenerate", s.protegido(http.HandlerFunc(s.handleRegenerarPlano)))
+	mux.Handle("PATCH /chunks/{id}", s.protegido(http.HandlerFunc(s.handleEditarFronteira)))
+	mux.Handle("POST /chunks/{id}/merge", s.protegido(http.HandlerFunc(s.handleMesclarChunk)))
+	mux.Handle("POST /chunks/{id}/split", s.protegido(http.HandlerFunc(s.handleDividirChunk)))
+	mux.Handle("POST /chunks/{id}/move", s.protegido(http.HandlerFunc(s.handleMoverChunk)))
 	mux.Handle("GET /documents/{id}/download", s.protegido(http.HandlerFunc(s.handleDownload)))
 	mux.Handle("POST /documents/{id}/send-now", s.protegido(http.HandlerFunc(s.handleEnviarAgora)))
 	mux.Handle("POST /documents/{id}/pause", s.protegido(http.HandlerFunc(s.handlePausar)))

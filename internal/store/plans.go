@@ -371,7 +371,11 @@ func minutesDoParams(pj paramsJSON, targetSeconds int) int {
 }
 
 func (r *Plans) chunksDoPlan(ctx context.Context, planID int64) ([]Chunk, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return listarChunksDoPlano(ctx, r.db, planID)
+}
+
+func listarChunksDoPlano(ctx context.Context, q consulta, planID int64) ([]Chunk, error) {
+	rows, err := q.QueryContext(ctx, `
 		SELECT id, plan_id, document_id, seq, first_block_id, last_block_id, first_hash, last_hash,
 		       section_path, starts_mid_section, ends_mid_section, oversized, words, seconds,
 		       target_seconds, status, sent_at, done_at

@@ -25,6 +25,21 @@ func urlReprocessar(id int64) string { return urlDocumento(id) + "/reprocess" }
 
 func urlRegenerarPlano(id int64) string { return urlPlano(id) + "/regenerate" }
 
+func urlChunk(id int64) string { return "/chunks/" + strconv.FormatInt(id, 10) }
+
+func urlMesclarChunk(id int64) string { return urlChunk(id) + "/merge" }
+
+func urlDividirChunk(id int64) string { return urlChunk(id) + "/split" }
+
+func urlMoverChunk(id int64) string { return urlChunk(id) + "/move" }
+
+func maior(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func urlExcluir(id int64) string { return urlDocumento(id) + "/delete" }
 
 func urlHistorico(filtro int64) string {

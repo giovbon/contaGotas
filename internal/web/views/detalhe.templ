@@ -113,7 +113,7 @@ templ Detalhe(props DetalheProps) {
 							<a class="botao secundario" href={ urlPlano(props.Doc.ID) }>Ver plano completo</a>
 						</div>
 						@avisosPlano(props.Avisos)
-						@tabelaPlano(*props.Plano)
+						@tabelaPlano(*props.Plano, nil, false)
 					</section>
 				}
 				if podeRegenerar(props.Doc, props.Plano) {
