@@ -23,6 +23,8 @@ func urlRetomar(id int64) string { return urlDocumento(id) + "/resume" }
 
 func urlReprocessar(id int64) string { return urlDocumento(id) + "/reprocess" }
 
+func urlRegenerarPlano(id int64) string { return urlPlano(id) + "/regenerate" }
+
 func urlExcluir(id int64) string { return urlDocumento(id) + "/delete" }
 
 func urlHistorico(filtro int64) string {
@@ -203,6 +205,40 @@ func podeReprocessar(d store.Document) bool {
 	default:
 		return false
 	}
+}
+
+// podeRegenerar mostra o formulário de ritmo quando há plano ativo, o
+// documento está em leitura (pronto ou pausado) e ainda sobra trecho pendente.
+// Regenerar não reenvia chunks.
+func podeRegenerar(d store.Document, plano *store.Plan) bool {
+	if plano == nil {
+		return false
+	}
+	if d.Status != store.StatusReady && d.Status != store.StatusPaused {
+		return false
+	}
+	for _, c := range plano.Chunks {
+		if c.Status == store.ChunkPending {
+			return true
+		}
+	}
+	return false
+}
+
+// minutosDoDoc/diasDoDoc preenchem o formulário de ritmo com o valor atual (ou
+// o padrão de importação) e evitam campo vazio ao alternar de modo.
+func minutosDoDoc(d store.Document) string {
+	if d.PacingMinutes > 0 {
+		return strconv.Itoa(d.PacingMinutes)
+	}
+	return "10"
+}
+
+func diasDoDoc(d store.Document) string {
+	if d.PacingDays != nil && *d.PacingDays > 0 {
+		return strconv.Itoa(*d.PacingDays)
+	}
+	return "10"
 }
 
 func precisaOCR(d store.Document) bool { return d.Status == store.StatusNeedsOCR }

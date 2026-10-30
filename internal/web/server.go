@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/giovani/readingdrip/internal/auth"
+	"github.com/giovani/readingdrip/internal/ingest"
 	"github.com/giovani/readingdrip/internal/library"
 	"github.com/giovani/readingdrip/internal/links"
 	"github.com/giovani/readingdrip/internal/store"
@@ -25,11 +26,18 @@ type Enqueuer interface {
 	Enqueue(ctx context.Context, documentID int64) error
 }
 
+// Replanner regenera o plano a partir do cursor (RF-024). *ingest.Service
+// implementa; a interface mantém o handler testável.
+type Replanner interface {
+	Replan(ctx context.Context, documentID int64, req ingest.ReplanRequest) (*ingest.ReplanResult, error)
+}
+
 // Server agrega as dependências das rotas.
 type Server struct {
 	Store        *store.Store
 	Importer     *library.Importer
 	Queue        Enqueuer            // nil → reprocessar responde 503
+	Replanner    Replanner           // nil → regenerar plano responde 503
 	Sessions     *auth.Authenticator // nil → usa Auth; sem nenhum, 401 (fail closed)
 	Auth         Middleware          // middleware extra para testes de pass-through
 	Sender       Sender              // nil → envio manual e teste respondem 503
@@ -48,6 +56,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /{$}", s.protegido(http.HandlerFunc(s.handleBiblioteca)))
 	mux.Handle("GET /documents/{id}", s.protegido(http.HandlerFunc(s.handleDocumento)))
 	mux.Handle("GET /documents/{id}/plan", s.protegido(http.HandlerFunc(s.handlePlano)))
+	mux.Handle("POST /documents/{id}/plan/regenerate", s.protegido(http.HandlerFunc(s.handleRegenerarPlano)))
 	mux.Handle("GET /documents/{id}/download", s.protegido(http.HandlerFunc(s.handleDownload)))
 	mux.Handle("POST /documents/{id}/send-now", s.protegido(http.HandlerFunc(s.handleEnviarAgora)))
 	mux.Handle("POST /documents/{id}/pause", s.protegido(http.HandlerFunc(s.handlePausar)))

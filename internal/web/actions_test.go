@@ -70,6 +70,7 @@ func TestAcoesSemSessao(t *testing.T) {
 		{http.MethodPost, "/documents/1/pause"},
 		{http.MethodPost, "/documents/1/resume"},
 		{http.MethodPost, "/documents/1/reprocess"},
+		{http.MethodPost, "/documents/1/plan/regenerate"},
 		{http.MethodGet, "/documents/1/delete"},
 		{http.MethodPost, "/documents/1/delete"},
 		{http.MethodDelete, "/documents/1"},

@@ -2,12 +2,23 @@
 
 Instruções para agentes de IA que trabalham neste repositório.
 
-## Leia antes de agir
+## Leitura econômica (obrigatória)
 
-1. `docs/context.md` — decisões fechadas, invariantes, estado atual.
-2. `docs/requirements.md` — escopo e critérios de aceite.
-3. O doc da área que você vai alterar (índice em `docs/README.md`).
-4. `docs/contributing.md` — regras de código, checklists e Definition of Done.
+Orçamento: no máximo ~10 mil tokens de documentação antes de tocar no código. Não leia documentos inteiros sem necessidade.
+
+1. Sempre leia `docs/context.md` — decisões, invariantes e estado atual.
+2. Se existir um brief da tarefa em `docs/tasks/<RF>.md`, leia o brief em vez dos docs de área. Em conflito, os docs de área vencem.
+3. Para o resto, localize e leia apenas a seção necessária:
+   - `rg -n 'RF-023' docs/requirements.md`
+   - `rg -n '^## |^### ' docs/web-ui.md`
+   - no `docs/changelog.md`, leia só a entrada mais recente.
+4. Leia no máximo: o requisito afetado, a seção da área afetada, o checklist de `docs/contributing.md` e a entrada mais recente do changelog.
+5. Não carregue `changelog.md`, `testing.md`, `requirements.md`, `data-model.md` ou `web-ui.md` inteiros.
+6. Ao concluir, atualize o brief (se houver), os docs afetados e o changelog.
+
+## Brief de tarefa
+
+Antes de codar, crie ou atualize `docs/tasks/<RF>.md` a partir de [`docs/tasks/TEMPLATE.md`](docs/tasks/TEMPLATE.md), com no máximo ~60 linhas. O brief resume objetivo, contrato já fechado, invariantes, arquivos prováveis, testes e docs a atualizar; decisões em aberto ficam explícitas. Ele não substitui os docs de área.
 
 ## Regras inegociáveis
 
@@ -24,7 +35,7 @@ Instruções para agentes de IA que trabalham neste repositório.
 ```sh
 go test ./... -race
 CGO_ENABLED=0 go test ./internal/plan/... ./internal/blocks/...
-go run github.com/a-h/templ/cmd/templ@v0.3.900 generate
+go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate
 ```
 
 ## Definition of Done

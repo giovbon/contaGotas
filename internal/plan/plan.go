@@ -205,3 +205,59 @@ func Generate(bs []blocks.Block, p Params) (*Plan, error) {
 	}
 	return pl, nil
 }
+
+// GenerateFrom produz o plano do restante do documento, de `inicio` (inclusive)
+// até o fim. É a base da regeneração a partir do cursor (RF-024): os chunks já
+// entregues ficam no plano anterior e a nova versão cobre só o que falta.
+//
+// O alvo é calculado sobre o tempo restante (em finish_by_days, `total
+// restante ÷ dias`). Os índices dos chunks são absolutos no documento, e o
+// caminho de seção é derivado do documento inteiro, para o breadcrumb e o
+// recap continuarem corretos quando o trecho começa no meio de uma seção.
+//
+// Como Generate, é pura e determinística.
+func GenerateFrom(bs []blocks.Block, p Params, inicio int) (*Plan, error) {
+	if len(bs) == 0 {
+		return nil, errors.New("plano: documento sem blocos")
+	}
+	if inicio < 0 || inicio >= len(bs) {
+		return nil, fmt.Errorf("plano: início %d fora do documento de %d blocos", inicio, len(bs))
+	}
+	for i := range bs {
+		if bs[i].Ord != i {
+			return nil, fmt.Errorf("plano: bloco %d com Ord %d (esperado %d)", i, bs[i].Ord, i)
+		}
+	}
+	if inicio == 0 {
+		return Generate(bs, p)
+	}
+
+	restante := make([]blocks.Block, len(bs)-inicio)
+	copy(restante, bs[inicio:])
+	for i := range restante {
+		restante[i].Ord = i
+		if restante[i].HeadingID >= inicio {
+			restante[i].HeadingID -= inicio
+		} else {
+			restante[i].HeadingID = -1
+		}
+	}
+
+	pl, err := Generate(restante, p)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range pl.Chunks {
+		c := &pl.Chunks[i]
+		c.FirstBlock += inicio
+		c.LastBlock += inicio
+		c.SectionPath = blocks.SectionPath(bs, c.FirstBlock)
+		c.StartsMidSection = c.FirstBlock != 0 && !bs[c.FirstBlock].Kind.IsHeading()
+		c.EndsMidSection = c.LastBlock+1 < len(bs) && !bs[c.LastBlock+1].Kind.IsHeading()
+	}
+	if err := ValidateFrom(bs, pl, p, inicio); err != nil {
+		return nil, err
+	}
+	return pl, nil
+}

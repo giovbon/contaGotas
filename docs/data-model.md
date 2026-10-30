@@ -1,7 +1,7 @@
 ---
 title: Modelo de dados
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-30
 ---
 
 # Modelo de dados
@@ -242,7 +242,7 @@ Todos em `internal/store`, com SQL restrito ao pacote:
 |---|---|---|
 | `Store.Documents()` | `Create`, `Get`, `BySHA256`, `List`, `UpdateStatus`, `TransitionStatus`, `UpdateTotais`, `SaveExtraction`, `UpdateSource`, `Delete` | `List` ordena por `priority, id`; `Get`/`BySHA256` devolvem `nil` sem erro quando não existem; defaults do schema são aplicados no `Create`; `TransitionStatus` só muda o status se o atual estiver entre os estados de origem (devolve `false` sem erro caso contrário); `Delete` remove derivados em transação e devolve `ErrDocumentNotFound` |
 | `Store.Blocks()` | `Replace`, `List`, `Count`, `IDs`, `Between`, `Section` | `Replace` troca o documento inteiro em transação e grava `heading_id` na segunda passada; `List` converte o id do banco de volta para o índice do bloco (`-1` = sem heading); `IDs` serve ao repositório de planos; `Between` recorta o trecho entregue e `Section` devolve a seção do heading ancestral (`HeadingID < 0` = abertura), ambas usadas pelo leitor |
-| `Store.Plans()` | `Create`, `Active`, `Get`, `Versions`, `Chunk`, `NextPending`, `PreviousChunk`, `NextChunk`, `MarkSent`, `MarkSkipped`, `MarkDone`, `Progress`, `HasDeliveryHistory`, `DiscardUndelivered` | `Create` substitui o plano ativo, calcula `version = MAX+1`, valida cobertura e grava os ids reais dos blocos; `MarkSent` só altera chunks `pending` (DB-08); `Chunk` devolve `nil` sem erro quando não existe; os vizinhos servem ao recap/rodapé da dose |
+| `Store.Plans()` | `Create`, `Replan`, `Active`, `Get`, `Versions`, `Chunk`, `NextPending`, `PreviousChunk`, `NextChunk`, `MarkSent`, `MarkSkipped`, `MarkDone`, `Progress`, `HasDeliveryHistory`, `DiscardUndelivered` | `Create` substitui o plano ativo, calcula `version = MAX+1`, valida cobertura e grava os ids reais dos blocos; `Replan` faz o mesmo a partir de um bloco inicial e atualiza o ritmo do documento na mesma transação (RF-024); `MarkSent` só altera chunks `pending` (DB-08); `Chunk` devolve `nil` sem erro quando não existe; os vizinhos servem ao recap/rodapé da dose |
 | `Store.Runs()` | `Create`, `GetByDate`, `Running`, `List`, `AddItem`, `ItemByDocument`, `ListItems`, `MarkItemSent`, `MarkItemFailed`, `MarkItemSkipped`, `FinishRun`, `Delete` | `Create` é idempotente por `run_date` (`ON CONFLICT DO NOTHING`) e devolve `criada=false` quando a run já existia; `Running` alimenta a retomada; `List` devolve as runs mais recentes (padrão 30, máximo 200), opcionalmente só as que tiveram item de um documento; `ItemByDocument` devolve `nil` sem erro quando o documento não tem item na run; `MarkItemSent` grava item e chunk na mesma transação e devolve `ErrChunkNotPending` sem alterar nada se o chunk já não está `pending`; `MarkItemFailed`/`MarkItemSkipped` só mudam o item; `Delete` remove só run `running` (cascata nos itens) e serve para desfazer uma run manual que falhou antes de enviar |
 | `Store.Settings()` | `Get`, `Set`, `SetMany`, `All` | `Set` faz upsert e grava `updated_at`; `SetMany` grava o lote inteiro em uma transação (ou nada muda) e aceita valor vazio, que equivale a “não configurada” na leitura |
 | `Store.Events()` | `Add`, `List` | `List` devolve do mais recente para o mais antigo; `document_id` é opcional |
@@ -260,6 +260,17 @@ Reextrair troca todos os blocos do documento, o que invalida os ids referenciado
 Planos descartados não tinham entrega, então não há histórico a preservar.
 
 Mudar apenas ritmo ou metadados (RF-005/RF-024) não deve reextrair: isso entra com o `Replan` sobre os blocos existentes, preservando os chunks já enviados.
+
+### Regeneração a partir do cursor (2026-10-30)
+
+`Plans.Replan(ctx, documentID, startBlock, plano, params, agora)` atende RF-024:
+
+- valida a cobertura do plano contra os blocos reais (começa em `startBlock`, contíguo, termina no último bloco) e os limites do documento **antes** de abrir a transação;
+- atualiza `documents.pacing_mode` e `pacing_minutes`/`pacing_days` conforme `params`: em `finish_by_days` os minutos anteriores são preservados; em `minutes_per_day`, `pacing_days` volta a NULL;
+- marca o plano ativo anterior como `superseded` (os chunks dele — inclusive `sent`/`skipped` — não são tocados) e insere a nova versão como `active` com `version = MAX+1`;
+- rollback em qualquer falha: nem ritmo nem plano mudam.
+
+`ingest.Service.Replan` localiza o cursor (`NextPending`), confere que o `first_block_id` existe, relê `plan.min_fill`/`plan.max_overshoot` e chama `plan.GenerateFrom` sobre o sufixo. Documentos `ready`/`paused` com plano ativo são aceitos; `ErrNoPlan`, `ErrNothingPending`, `ErrInvalidPacing` e `ErrNotProcessable` viram avisos na UI. O progresso (`Plans.Progress`) é sempre por plano, então passa a medir só o restante.
 
 ### Gestão de documentos (2026-10-28)
 

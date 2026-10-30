@@ -271,6 +271,8 @@ func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 		aviso = "Documento retomado: a leitura continua do trecho pendente."
 	case "reprocessando":
 		aviso = "Documento reenfileirado: a extração recomeça em segundo plano."
+	case "regenerado":
+		aviso = "Plano regenerado a partir do trecho pendente; os trechos já enviados foram preservados."
 	}
 	switch q.Get("aviso") {
 	case "sem-trechos":
@@ -289,6 +291,10 @@ func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 		aviso = "Retome o documento antes de reprocessar."
 	case "historico":
 		aviso = "Este documento já tem trechos entregues e não pode ser reextraído. Exclua e envie o arquivo de novo para gerar outro plano."
+	case "ritmo":
+		aviso = "Ritmo inválido: informe minutos por dia (1–600) ou dias de leitura (1–3650), conforme o modo escolhido."
+	case "sem-plano":
+		aviso = "Este documento ainda não tem plano ativo para regenerar."
 	case "tempo":
 		falha = "O ntfy não respondeu a tempo."
 	case "falha":

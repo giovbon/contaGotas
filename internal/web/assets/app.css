@@ -536,6 +536,16 @@ section {
 	margin: 0;
 }
 
+/* Ritmo do documento (regenerar plano) */
+
+.form-ritmo {
+	margin-top: 0.8rem;
+}
+
+.form-ritmo button {
+	margin-top: 0.9rem;
+}
+
 /* Leitor (link assinado) */
 
 .leitor-container {

@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 status: ativo
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Roadmap
@@ -127,8 +127,8 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## FASE-3 — Refinamento
 
+- [x] regenerar plano a partir do cursor (1.17, 2026-10-30)
 - [ ] edição de fronteiras (mesclar/dividir/mover)
-- [ ] regenerar plano a partir do cursor
 - [ ] simulação de parâmetros no preview
 - [ ] calibração de `difficulty` por feedback
 - [ ] hardening de PDF (3+ colunas, notas, figuras)
@@ -138,6 +138,8 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [ ] exportar plano em Markdown/CSV
 
 **Saída:** usuário consegue corrigir um plano ruim sem reimportar o documento.
+
+**Incremento 1.17 (concluído em 2026-10-30):** regeneração a partir do cursor (RF-024). `plan.GenerateFrom`/`ValidateFrom` produzem e validam o sufixo do documento com índices absolutos e caminho de seção do documento inteiro; o alvo de `finish_by_days` usa o tempo restante. `Plans.Replan` grava a nova versão e o novo ritmo na mesma transação, mantendo o plano anterior `superseded` com os chunks enviados intactos. `ingest.Service.Replan` localiza o cursor, aceita `ready`/`paused` e devolve `ErrNoPlan`/`ErrNothingPending`/`ErrInvalidPacing`. O detalhe ganhou o formulário “Ritmo de leitura” e a rota `POST /documents/{id}/plan/regenerate`; ver [`segmentation.md`](./segmentation.md#regeneração-a-partir-do-cursor-rf-024) e [`web-ui.md`](./web-ui.md#ações-de-gestão-documentsid).
 
 ---
 
@@ -168,4 +170,4 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível.
 
-Os avisos de pacing (1.14) e os padrões de plano (1.15) já fecharam o trabalho de produto que estava pendente. Com o deploy validado, o próximo passo é a FASE-3: **regenerar plano a partir do cursor** (RF-024) e edição de fronteiras (RF-023), além de testar o restore em container limpo (RF-093). O backup pré-migração (RF-092) está entregue em 1.16. `SPIKE-04` segue aberto e não bloqueia.
+Os avisos de pacing (1.14), os padrões de plano (1.15) e a regeneração a partir do cursor (1.17, RF-024) já fecharam o trabalho de produto que estava pendente. Com o deploy validado, o próximo passo é **editar fronteiras** (RF-023, `PATCH /chunks/{id}`, brief em [`tasks/rf-023.md`](./tasks/rf-023.md)), além de testar o restore em container limpo (RF-093). O backup pré-migração (RF-092) está entregue em 1.16. `SPIKE-04` segue aberto e não bloqueia.

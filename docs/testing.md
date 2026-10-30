@@ -1,12 +1,14 @@
 ---
 title: Testes
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-30
 ---
 
 # Testes
 
 O risco do projeto está concentrado no **segmentador** e na **extração**. A estratégia prioriza esses dois com testes determinísticos e fixtures reais; o resto usa testes de integração com dublês.
+
+> **Agentes:** leia só a seção do componente afetado; não carregue o arquivo inteiro.
 
 ## Pirâmide
 
@@ -136,6 +138,16 @@ Sem CGO, o pacote compila pelo stub e `TestExtractStub` verifica o erro claro.
 - Singular/plural: “1 dia”, “Sobra 1 dia”, “Sobram 2 dias”.
 - `plan.Format` escreve cada aviso como `# aviso: …`; goldens com `finish_by_days` refletem a linha.
 - Detalhe e plano completo mostram “Ritmo inviável” para documento `finish_by_days` com 30 dias e texto curto.
+
+## Regeneração a partir do cursor
+
+- `GenerateFrom(bs, params, 2)` começa no bloco 2, termina no último e mantém `seq`/hashes contíguos; `ValidateFrom` aceita a cobertura parcial.
+- O alvo de `finish_by_days` usa só o tempo restante (155 s ÷ 5 = 31 s); `minutes_per_day` mantém os minutos escolhidos.
+- `section_path` e `starts_mid_section` vêm do documento inteiro (bloco no meio do Capítulo 1 continua com o breadcrumb).
+- `GenerateFrom(..., 0)` equivale a `Generate`; início negativo ou igual ao total devolve erro.
+- `Plans.Replan` cria a versão 2, preserva os chunks enviados no plano `superseded` e atualiza o ritmo do documento; início inválido não altera plano nem ritmo.
+- `ingest.Replan` a partir do segundo chunk, documento pausado, ritmo inválido (`ErrInvalidPacing`), sem plano (`ErrNoPlan`), sem pendentes (`ErrNothingPending`) e id inexistente (`ErrNotFound`).
+- HTTP: formulário no detalhe, `303 ?acao=regenerado`, primeiro bloco = cursor, ritmo novo no documento e aviso na página; ritmo inválido → `?aviso=ritmo`, sem pendentes → `?aviso=sem-trechos`; rota sem sessão → `303 /login`.
 
 ## Store
 
