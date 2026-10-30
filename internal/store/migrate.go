@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,16 +25,40 @@ type migracao struct {
 
 // migrate aplica, em ordem e uma vez, as migrações embutidas. Cada migração
 // roda em transação junto com o registro em schema_migrations.
-func (s *Store) migrate(ctx context.Context) error {
-	if err := s.criarTabelaMigracoes(ctx); err != nil {
-		return err
-	}
-
-	pendentes, err := migracoesPendentes(ctx, s.db)
+func (s *Store) migrate(ctx context.Context, opts Options, existente bool) error {
+	todas, err := lerMigracoes()
 	if err != nil {
 		return err
 	}
+	return s.migrar(ctx, opts, existente, todas)
+}
 
+// migrar aplica as migrações de todas que ainda não foram registradas. Antes
+// de tocar no schema, grava o backup pré-migração quando o banco já tem dados
+// e Options.BackupDir está configurado (RF-092).
+func (s *Store) migrar(ctx context.Context, opts Options, existente bool, todas []migracao) error {
+	pendentes, err := migracoesPendentes(ctx, s.db, todas)
+	if err != nil {
+		return err
+	}
+	if len(pendentes) == 0 {
+		return nil
+	}
+
+	if existente && strings.TrimSpace(opts.BackupDir) != "" {
+		alvo := pendentes[len(pendentes)-1].versao
+		destino := filepath.Join(opts.BackupDir, fmt.Sprintf("pre-migrate-%d.db", alvo))
+		if err := s.Backup(ctx, destino); err != nil {
+			return err
+		}
+		if opts.OnBackup != nil {
+			opts.OnBackup(destino)
+		}
+	}
+
+	if err := s.criarTabelaMigracoes(ctx); err != nil {
+		return err
+	}
 	for _, m := range pendentes {
 		if err := s.aplicarMigracao(ctx, m); err != nil {
 			return err
@@ -53,10 +78,17 @@ func (s *Store) criarTabelaMigracoes(ctx context.Context) error {
 	return nil
 }
 
-func migracoesPendentes(ctx context.Context, db *sql.DB) ([]migracao, error) {
-	todas, err := lerMigracoes()
-	if err != nil {
-		return nil, err
+func migracoesPendentes(ctx context.Context, db *sql.DB, todas []migracao) ([]migracao, error) {
+	// Banco legado (ou novo) sem schema_migrations: todas as migrações estão
+	// pendentes.
+	var tabela int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'`,
+	).Scan(&tabela); err != nil {
+		return nil, fmt.Errorf("store: verificar schema_migrations: %w", err)
+	}
+	if tabela == 0 {
+		return todas, nil
 	}
 
 	aplicadas := make(map[int]bool)

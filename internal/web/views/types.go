@@ -27,10 +27,27 @@ type DetalheProps struct {
 	Doc         store.Document
 	Plano       *store.Plan
 	Avisos      []string
+	Edicoes     map[int64]ChunkEdicao
 	TemOriginal bool
 	Duplicado   bool
 	Aviso       string
 	Falha       string
+}
+
+// Fronteira é um ponto de corte válido dentro de um chunk pendente.
+type Fronteira struct {
+	Bloco  int
+	Rotulo string
+}
+
+// ChunkEdicao são os controles de fronteira de um chunk pendente (RF-023).
+type ChunkEdicao struct {
+	BlocoInicio      int
+	BlocoFim         int
+	PodeJuntar       bool
+	MaxMoverAnterior int
+	MaxMoverProximo  int
+	Fronteiras       []Fronteira
 }
 
 // TesteProps é o resultado do envio de teste do ntfy.

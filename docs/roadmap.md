@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 status: ativo
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Roadmap
@@ -57,7 +57,7 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [x] worker de extração (1 por vez) + status
 - [x] persistência de plano e chunks
 - [x] UI: biblioteca, detalhe, preview do plano
-- [x] configurações: ntfy, agenda e plano (WPM, dificuldade, min/max, recap)
+- [x] configurações: ntfy, agenda e padrões de plano (1.10, 1.15)
 - [x] entrypoint HTTP (`cmd/app`) com wiring de config, store, auth, importador e fila
 - [x] composição da mensagem (breadcrumb, recap, rodapé)
 - [x] cliente ntfy com retry (sem envio de teste nem “enviar agora”)
@@ -70,6 +70,10 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 - [ ] deploy atrás de Cloudflare Tunnel (compose e doc prontos em 1.13; imagem validada em 1.13; falta rodar no host com Compose v2)
 
 **Validação 1.13 (2026-10-29):** com o Docker disponível, o build cross ARM64 foi executado e passou depois de trocar o builder de `bookworm` para `trixie` — os objetos pré-compilados do `go-fitz` usam `__isoc23_strtol`/`strtoul`, ausentes na glibc 2.36. A imagem resultante tem **23.965.482 bytes (~22,9 MiB)**, arquitetura `arm64`, e o container subiu `healthy` com `read_only` + `tmpfs /tmp`; `/healthz` e `/readyz` responderam `200`, e o fluxo upload `.md` → `ready` → plano v1 funcionou com o original preservado em `/data/documents/1/source.md` (owner `65532`). O deploy completo com `compose.yaml` e Cloudflare Tunnel segue pendente: o host de validação não tem o plugin Compose v2 nem credenciais do túnel.
+
+**Incremento 1.16 (concluído em 2026-10-29):** backup pré-migração (RF-092). `store.OpenWithOptions` recebe `Options{BackupDir, OnBackup}`; quando há migrações pendentes num banco existente, grava `VACUUM INTO {BackupDir}/pre-migrate-{versão-alvo}.db` antes de criar/aplicar qualquer migração. O arquivo só aparece no nome final depois de completo (temporário + rename) e um backup já existente é preservado. `cmd/app` usa `{APP_DATA_DIR}/backup` e loga o caminho. Falha no backup aborta o start sem tocar no schema. `store.Open` continua sem backup. Ver [`data-model.md`](./data-model.md#migrações) e [`operations.md`](./operations.md#upgrade).
+
+**Incremento 1.15 (concluído em 2026-10-29):** padrões de plano em `/settings`. `internal/planconfig` valida `plan.wpm` (50–1000), `plan.difficulty` (0,5–3,0), `plan.min_fill` (0,30–0,95), `plan.max_overshoot` (1,00–3,00) e `plan.recap` (bool). A importação aplica WPM/dificuldade ao documento novo e lê min/max na extração; o recap desliga “Onde paramos” na composição. Valores inválidos não são persistidos (`schedule.Parse` cobre o formulário inteiro). Ver [`segmentation.md`](./segmentation.md#parâmetros), [`reading-time.md`](./reading-time.md) e [`web-ui.md`](./web-ui.md#configurações-settings).
 
 **Incremento 1.13 (entregue em 2026-10-28, validação pendente):** imagem ARM64 e deploy de referência. `/Dockerfile` multi-stage com cross `gcc-aarch64-linux-gnu` (ou `NATIVE=1` em runner ARM64), `templ generate`, CGO com link estático e runtime distroless non-root; `cmd/app healthcheck` consulta `/readyz` (a imagem não tem shell) e `cmd/app` embute `time/tzdata`. `/compose.yaml` sobe app, `cloudflared` e `ntfy`, com app `read_only`, `/tmp` em tmpfs, volume `/data`, porta só em `127.0.0.1` e `depends_on` por healthcheck; `/deploy/ntfy/server.yml` e `/.env.example` completam o pacote. O build da imagem ainda **não foi executado** (daemon do Docker indisponível); ver [`operations.md`](./operations.md#imagem-dockerfile).
 
@@ -123,8 +127,8 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## FASE-3 — Refinamento
 
+- [x] regenerar plano a partir do cursor (1.17, 2026-10-30)
 - [ ] edição de fronteiras (mesclar/dividir/mover)
-- [ ] regenerar plano a partir do cursor
 - [ ] simulação de parâmetros no preview
 - [ ] calibração de `difficulty` por feedback
 - [ ] hardening de PDF (3+ colunas, notas, figuras)
@@ -135,11 +139,13 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 **Saída:** usuário consegue corrigir um plano ruim sem reimportar o documento.
 
+**Incremento 1.17 (concluído em 2026-10-30):** regeneração a partir do cursor (RF-024). `plan.GenerateFrom`/`ValidateFrom` produzem e validam o sufixo do documento com índices absolutos e caminho de seção do documento inteiro; o alvo de `finish_by_days` usa o tempo restante. `Plans.Replan` grava a nova versão e o novo ritmo na mesma transação, mantendo o plano anterior `superseded` com os chunks enviados intactos. `ingest.Service.Replan` localiza o cursor, aceita `ready`/`paused` e devolve `ErrNoPlan`/`ErrNothingPending`/`ErrInvalidPacing`. O detalhe ganhou o formulário “Ritmo de leitura” e a rota `POST /documents/{id}/plan/regenerate`; ver [`segmentation.md`](./segmentation.md#regeneração-a-partir-do-cursor-rf-024) e [`web-ui.md`](./web-ui.md#ações-de-gestão-documentsid).
+
 ---
 
 ## FASE-4 — Operação
 
-- [ ] backup automático + restore testado
+- [ ] backup automático + restore testado (backup pré-migração entregue em 1.16; falta restore em container limpo)
 - [ ] `/healthz` e `/readyz` completos
 - [ ] métricas leves (contadores em memória)
 - [ ] rotação de `APP_SECRET` com regeneração de links
@@ -162,4 +168,6 @@ Fases entregáveis, com critério de saída verificável. Status: `planejado` ·
 
 ## Próximo passo imediato
 
-Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível. Depois da validação, a FASE-1 fecha; a FASE-2 só depende da semana de entregas automáticas com restart no meio. `SPIKE-04` segue aberto e não bloqueia.
+Validar a imagem ARM64 e o deploy em um host com Docker: `docker buildx build --platform linux/arm64 ...`, subir o `compose.yaml` e conferir `docker inspect --format '{{.State.Health.Status}}'` = `healthy`, acesso pelo Cloudflare Tunnel e upload/envio de ponta a ponta. Com isso a FASE-1 fecha. O Dockerfile, o healthcheck, o `compose.yaml`, o ntfy de referência e o `.env.example` já estão prontos (1.13); o build não roda nesta máquina porque o daemon do Docker não está disponível.
+
+Os avisos de pacing (1.14), os padrões de plano (1.15) e a regeneração a partir do cursor (1.17, RF-024) já fecharam o trabalho de produto que estava pendente. Com o deploy validado, o próximo passo é **editar fronteiras** (RF-023, `PATCH /chunks/{id}`, brief em [`tasks/rf-023.md`](./tasks/rf-023.md)), além de testar o restore em container limpo (RF-093). O backup pré-migração (RF-092) está entregue em 1.16. A imagem é publicada no Docker Hub pelo workflow `.github/workflows/docker.yml` e o deploy usa o template [`/deploy/compose.template.yml`](../deploy/compose.template.yml). `SPIKE-04` segue aberto e não bloqueia.

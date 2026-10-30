@@ -64,7 +64,11 @@ func (r *Blocks) Replace(ctx context.Context, documentID int64, lista []blocks.B
 // List devolve os blocos do documento em ordem, com heading_id convertido de
 // id do banco para índice do bloco.
 func (r *Blocks) List(ctx context.Context, documentID int64) ([]blocks.Block, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return listarBlocos(ctx, r.db, documentID)
+}
+
+func listarBlocos(ctx context.Context, q consulta, documentID int64) ([]blocks.Block, error) {
+	rows, err := q.QueryContext(ctx, `
 		SELECT id, ord, kind, level, heading_id, text, html, words, seconds, hash
 		FROM blocks WHERE document_id = ? ORDER BY ord`, documentID)
 	if err != nil {
@@ -202,7 +206,11 @@ func (r *Blocks) Count(ctx context.Context, documentID int64) (int, error) {
 // IDs devolve os ids do banco na ordem de `ord`, para o repositório de planos
 // ligar os chunks aos blocos.
 func (r *Blocks) IDs(ctx context.Context, documentID int64) ([]int64, error) {
-	rows, err := r.db.QueryContext(ctx,
+	return idsDeBlocos(ctx, r.db, documentID)
+}
+
+func idsDeBlocos(ctx context.Context, q consulta, documentID int64) ([]int64, error) {
+	rows, err := q.QueryContext(ctx,
 		`SELECT id FROM blocks WHERE document_id = ? ORDER BY ord`, documentID)
 	if err != nil {
 		return nil, fmt.Errorf("store: ids dos blocos do documento %d: %w", documentID, err)

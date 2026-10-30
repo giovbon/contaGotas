@@ -8,6 +8,8 @@ updated: 2026-10-30
 
 Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. Não reescreva entradas antigas.
 
+> **Agentes:** leia apenas a entrada mais recente; não carregue o arquivo inteiro.
+
 ## 2026-10-30 — CI/CD para Docker Hub e template de deploy
 
 **Adicionado**
@@ -15,7 +17,7 @@ Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. N
 - `/deploy/compose.template.yml`: template de deploy que usa a imagem publicada (sem build local), com `app` + `cloudflared` + `ntfy`, `read_only`, healthcheck e roteiro de uso no cabeçalho.
 
 **Corrigido**
-- [`web-ui.md`](./web-ui.md) e [`context.md`](./context.md): as configurações de plano (WPM, dificuldade, `min_fill`, `max_overshoot`, recap) já estão em `/settings` desde 1.10 — a doc dizia que ficavam para a FASE-3.
+- [`web-ui.md`](./web-ui.md) e [`context.md`](./context.md): as configurações de plano (WPM, dificuldade, `min_fill`, `max_overshoot`, recap) já estão em `/settings` desde o incremento 1.15 — a doc dizia que ficavam para a FASE-3.
 
 **Documentação**
 - [`operations.md`](./operations.md) — seção “CI/CD (GitHub Actions)” e referência ao template.
@@ -34,7 +36,82 @@ Append-only, mais recente no topo. Uma entrada por fase ou mudança relevante. N
 **Documentação**
 - [`delivery-ntfy.md`](./delivery-ntfy.md) — chaves, precedência, configuração do servidor com auth e testes.
 - [`scheduling.md`](./scheduling.md), [`web-ui.md`](./web-ui.md) e [`operations.md`](./operations.md) — chaves, campos da tela, operação e checklist.
+## 2026-10-30 — leitura econômica da documentação para agentes
 
+**Adicionado**
+- `docs/tasks/`: briefs de tarefa de ~60 linhas, com `README.md`, `TEMPLATE.md` e o primeiro brief (`rf-023.md`).
+- `AGENTS.md`: orçamento de ~10 mil tokens de documentação antes do código, leitura por seção e obrigação de criar/atualizar o brief.
+- `docs/README.md`: mapa “tarefa → leitura mínima” e trilha completa separada, só para onboarding/revisão de arquitetura.
+
+**Decisões**
+- O brief não substitui os docs de área; em conflito, o doc de área vence. Contrato em aberto não entra como fechado.
+- O `changelog.md` continua append-only; agentes leem só a entrada mais recente, nunca o arquivo inteiro.
+- Nenhum doc de área foi dividido nesta mudança; o ganho vem da leitura direcionada e dos briefs.
+
+**Testes**
+- Mudança somente de documentação; nenhum código de produção foi alterado. Links relativos e front matter revisados.
+
+**Documentação**
+- [`README.md`](./README.md), [`documentation-pattern.md`](./documentation-pattern.md), [`tasks/`](./tasks/README.md) e `AGENTS.md`.
+
+## 2026-10-30 — regeneração do plano a partir do cursor (RF-024, 1.17)
+
+**Adicionado**
+- `plan.GenerateFrom(bs, params, start)` gera o sufixo do documento a partir do bloco `start`, com índices de bloco **absolutos** e `section_path`/`starts_mid_section` derivados do documento inteiro. O alvo de `finish_by_days` usa o tempo restante (segundos restantes ÷ dias restantes).
+- `plan.ValidateFrom(bs, pl, p, start)` valida a cobertura de `start` até o fim; `Validate` delega com `start=0` e mantém o contrato anterior.
+- `Plans.Replan(ctx, documentID, startBlock, plano, params, agora)`: em uma transação, cria a nova versão (`version = MAX+1`), marca a anterior como `superseded` e grava o novo ritmo (`pacing_mode`, `pacing_minutes`/`pacing_days`). Chunks enviados/ignorados do plano antigo não são tocados.
+- `ingest.Service.Replan` + `ReplanRequest`/`ReplanResult`, com sentinelas `ErrNoPlan`, `ErrNothingPending` e `ErrInvalidPacing`. Aceita documentos `ready`/`paused` com plano ativo e ao menos um chunk pendente; o início é o `first_block_id` do primeiro chunk pendente.
+- Rota `POST /documents/{id}/plan/regenerate` (sessão) e formulário “Ritmo de leitura” no detalhe: modo, minutos por dia e dias de leitura. Mensagens `?acao=regenerado`, `?aviso=ritmo`, `?aviso=sem-plano` e `?aviso=sem-trechos`.
+- `cmd/app` compartilha o mesmo `ingest.Service` entre a fila e o `Replanner` da UI.
+
+**Decisões**
+- Regenerar **não** reextrai: opera sobre os blocos existentes e só recalcula o sufixo. O plano antigo permanece consultável como `superseded`.
+- A nova versão cobre do cursor até o último bloco; o progresso exibido é o do plano ativo (restante), não o do livro inteiro.
+- `Plans.Replan` recebe índices absolutos, diferente de `Create`, que recebe índices 0-based (iguais aos absolutos porque o início é 0).
+- UI limita minutos a 1–600 e dias a 1–3650; valores inválidos não persistem e redirecionam com `?aviso=ritmo`.
+
+**Testes**
+- `internal/plan/generatefrom_test.go`: sufixo com índices absolutos, caminho de seção herdado, alvo pelo tempo restante e validação de cobertura a partir de `start`.
+- `internal/store/plans_test.go`: `Replan` preserva chunks enviados, versiona o plano e atualiza o ritmo; início inválido é recusado.
+- `internal/ingest/replan_test.go`: fluxo feliz, `ErrNoPlan`, `ErrNothingPending`, `ErrInvalidPacing` e estados não elegíveis.
+- `internal/web/replan_test.go`: formulário, `303 ?acao=regenerado`, avisos de ritmo/ausência de trechos e rota sem sessão.
+
+**Documentação**
+- [`segmentation.md`](./segmentation.md#regeneração-a-partir-do-cursor-rf-024) — algoritmo do sufixo e alvo restante; [`data-model.md`](./data-model.md) — transação de `Replan`; [`web-ui.md`](./web-ui.md) — rota e formulário; [`testing.md`](./testing.md) — checklist; [`roadmap.md`](./roadmap.md) — 1.17 e próximo passo; [`context.md`](./context.md) — estado.
+
+## 2026-10-29 — backup pré-migração (RF-092)
+
+**Adicionado**
+- `store.OpenWithOptions(ctx, path, store.Options{BackupDir, OnBackup})`: quando há migrações pendentes num banco existente (arquivo não vazio), grava `VACUUM INTO {BackupDir}/pre-migrate-{versão-alvo}.db` **antes** de criar/aplicar qualquer migração. `OnBackup` recebe o caminho final para log. `store.Open` continua equivalente a `OpenWithOptions` sem backup.
+- `store.Store.Backup(ctx, dest)`: cria o diretório pai, grava em `dest + ".tmp"` e renomeia para o nome final. Backup existente é tratado como íntegro e preservado (não sobrescreve). Destino vazio ou banco fechado devolvem erro.
+- `platform.Config.BackupDir()` (`{APP_DATA_DIR}/backup`); `cmd/app` abre o store com backup e loga “backup pré-migração gravado”.
+
+**Decisões**
+- O backup precede até o `CREATE TABLE schema_migrations`; banco novo não gera arquivo e falha no backup aborta o start sem tocar no schema.
+- O nome usa a **versão-alvo** (maior migração pendente), seguindo `pre-migrate-{versão}.db` de `data-model.md`. Repetir o mesmo upgrade reaproveita o backup da tentativa anterior.
+- `VACUUM INTO` com parâmetro vinculado, seguro com WAL (ADR-0007). O temporário + rename evita que um backup interrompido apareça como válido.
+
+**Testes**
+- `internal/store/backup_test.go`: cópia de dados/configurações, preservação de destino existente, destino vazio, backup antes de migração sintética (estado anterior sem a tabela nova e `OnBackup` chamado) e banco novo sem diretório de backup.
+
+**Documentação**
+- [`data-model.md`](./data-model.md#migrações) — fluxo de `OpenWithOptions`/`Backup` e nome do arquivo; [`operations.md`](./operations.md#upgrade) — backup automático no upgrade.
+- [`testing.md`](./testing.md#store) — casos de backup; [`roadmap.md`](./roadmap.md) — 1.16 e FASE-4 parcial; [`context.md`](./context.md) — estado e próximo passo.
+
+## 2026-10-29 — padrões de plano em `/settings` (1.15)
+
+**Adicionado**
+- `internal/planconfig`: `Config`/`Default`/`Load`/`Parse` para `plan.wpm` (50–1000), `plan.difficulty` (0,5–3,0), `plan.min_fill` (0,30–0,95), `plan.max_overshoot` (1,00–3,00) e `plan.recap` (bool). Valores ausentes/vazios caem no padrão; inválidos devolvem erro citando a chave; `NaN`/`Inf` são recusados.
+- `/settings` ganhou a seção “Plano”. O formulário é validado inteiro por `schedule.Parse` (que inclui `planconfig.Parse`) e gravado em transação; valor inválido não persiste.
+- A importação aplica `plan.wpm`/`plan.difficulty` ao documento novo; a extração lê `plan.min_fill`/`plan.max_overshoot`; `plan.recap=false` desliga o “Onde paramos” na composição (`Options.RecapDisabled`).
+- Testes de `planconfig` (padrões, faixas, limites, `Load`), da UI e da importação.
+
+**Decisões**
+- Padrões globais valem só para documentos novos (WPM/dificuldade) ou na próxima extração/reprocessamento (min/max); documentos existentes mantêm `params_json` e metadados.
+- O pacing (minutos/dias) continua por documento; os padrões não criam novo campo nem migração.
+
+**Documentação**
+- [`segmentation.md`](./segmentation.md#parâmetros), [`reading-time.md`](./reading-time.md), [`continuity.md`](./continuity.md), [`delivery-ntfy.md`](./delivery-ntfy.md), [`web-ui.md`](./web-ui.md#configurações-settings), [`roadmap.md`](./roadmap.md) e [`context.md`](./context.md).
 ## 2026-10-29 — validação da imagem ARM64 e correção do builder
 
 **Adicionado**

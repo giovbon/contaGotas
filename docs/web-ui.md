@@ -1,7 +1,7 @@
 ---
 title: Interface web
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-30
 ---
 
 # Interface web
@@ -67,7 +67,7 @@ Já implementado em `internal/web`:
 - `GET /healthz` e `GET /readyz` (ping no SQLite), públicas.
 - Cabeçalhos comuns: `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` e CSP `default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
 
-As rotas de edição de plano (`PATCH /chunks/{id}` e `POST /documents/{id}/plan/regenerate`), `/media/*` e as configurações de plano ainda não existem. Leitor, ações do ntfy, gestão de documentos e histórico já estão implementados.
+As rotas de edição de fronteiras (`PATCH /chunks/{id}`) e `/media/*` ainda não existem. A regeneração a partir do cursor (`POST /documents/{id}/plan/regenerate`, RF-024) foi implementada em 2026-10-30; leitor, ações do ntfy, gestão de documentos, histórico e configurações de plano já estão implementados.
 
 Contrato do upload:
 
@@ -125,9 +125,10 @@ Implementado:
 - aviso do envio manual (`?enviado=1`, `?aviso=…`), das ações (`?acao=pausado|retomado|reprocessando`) ou a falha de publicação (`?aviso=falha&motivo=…`);
 - prévia do plano ativo com `seq`, seção, palavras, minutos e status, com link para o preview completo;
 - aviso “Ritmo inviável” quando o `finish_by_days` produz alvo abaixo de 3 min, acima de 1 h ou mais dias que trechos (RF-026); o plano continua válido.
+- formulário “Ritmo de leitura” com modo (`minutes_per_day`/`finish_by_days`), minutos por dia e dias de leitura; “Regenerar plano” cria uma nova versão a partir do primeiro trecho pendente, preservando os já enviados (RF-024);
 - polling de status: com JS, a própria página é consultada a cada 1,5 s enquanto o status é `processing`; ao mudar, recarrega; desiste após ~3 min. Sem JS, basta recarregar.
 
-Ainda não implementado: edição de metadados e ritmo, “regenerar a partir do cursor” e avisos de `oversized`/`stale`.
+Ainda não implementado: edição de metadados, edição de fronteiras e avisos de `oversized`/`stale`.
 
 ### Preview do plano (`/documents/{id}/plan`)
 
@@ -182,6 +183,22 @@ Contrato de `/documents/{id}/reprocess`:
 | fila indisponível | `503` |
 | falha ao enfileirar | `500` e status anterior restaurado |
 | sem sessão | `303 /login` |
+
+Contrato de `/documents/{id}/plan/regenerate` (RF-024):
+
+| Situação | Resposta |
+|---|---|
+| modo/valor válidos, documento `ready`/`paused` e chunk pendente | `303 · ?acao=regenerado` (nova versão ativa) |
+| ritmo inválido (minutos fora de 1–600, dias fora de 1–3650 ou modo desconhecido) | `303 · ?aviso=ritmo` (nada muda) |
+| documento sem plano ativo | `303 · ?aviso=sem-plano` |
+| documento sem trechos pendentes | `303 · ?aviso=sem-trechos` |
+| documento em `processing`, `completed`, `failed` ou `needs_ocr` | `303 · ?aviso=indisponivel` |
+| documento inexistente | `404` |
+| formulário malformado | `400`; acima de 64 KiB, `413` |
+| regeneração indisponível (sem serviço) | `503` |
+| sem sessão | `303 /login` |
+
+A nova versão cobre do `first_block_id` do primeiro chunk pendente até o último bloco, com o tempo restante. O plano anterior vira `superseded` e mantém os chunks já enviados; nada é reenviado. O novo ritmo é gravado no documento na mesma transação do plano, e `?acao=regenerado` mostra o aviso no detalhe.
 
 Contrato de exclusão:
 

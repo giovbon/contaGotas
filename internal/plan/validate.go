@@ -6,14 +6,26 @@ import (
 	"github.com/giovani/readingdrip/internal/blocks"
 )
 
-// Validate confere as invariantes do plano. Um plano inválido nunca deve ser
-// persistido ou ativado.
+// Validate confere as invariantes do plano completo (começa no bloco 0). Um
+// plano inválido nunca deve ser persistido ou ativado.
 func Validate(bs []blocks.Block, pl *Plan, p Params) error {
+	return ValidateFrom(bs, pl, p, 0)
+}
+
+// ValidateFrom confere as invariantes de um plano que começa em inicio
+// (inclusive) e vai até o último bloco. Os índices dos chunks são absolutos
+// (do documento inteiro), então o primeiro chunk precisa começar em inicio e o
+// último terminar no último bloco. Usado pela regeneração a partir do cursor
+// (RF-024).
+func ValidateFrom(bs []blocks.Block, pl *Plan, p Params, inicio int) error {
 	if pl == nil {
 		return fmt.Errorf("plano: nulo")
 	}
 	if len(bs) == 0 {
 		return fmt.Errorf("plano: documento sem blocos")
+	}
+	if inicio < 0 || inicio >= len(bs) {
+		return fmt.Errorf("plano: início %d fora do documento de %d blocos", inicio, len(bs))
 	}
 	if len(pl.Chunks) == 0 {
 		return fmt.Errorf("plano: sem chunks")
@@ -28,7 +40,7 @@ func Validate(bs []blocks.Block, pl *Plan, p Params) error {
 		return fmt.Errorf("plano: alvo %d difere do calculado %d", pl.TargetSeconds, target)
 	}
 
-	prev := -1
+	prev := inicio - 1
 	for i, c := range pl.Chunks {
 		if c.Seq != i {
 			return fmt.Errorf("plano: chunk %d com seq %d", i, c.Seq)

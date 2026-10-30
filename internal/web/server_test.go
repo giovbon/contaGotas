@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/giovani/readingdrip/internal/auth"
+	"github.com/giovani/readingdrip/internal/ingest"
 	"github.com/giovani/readingdrip/internal/library"
 	"github.com/giovani/readingdrip/internal/store"
 	"github.com/giovani/readingdrip/internal/web"
@@ -47,12 +48,13 @@ func (f *filaFalsa) enfileirados() []int64 {
 }
 
 type ambiente struct {
-	srv   *web.Server
-	store *store.Store
-	imp   *library.Importer
-	fila  *filaFalsa
-	http  *httptest.Server
-	root  string
+	srv    *web.Server
+	store  *store.Store
+	imp    *library.Importer
+	fila   *filaFalsa
+	worker *ingest.Service
+	http   *httptest.Server
+	root   string
 }
 
 func novoAmbiente(t *testing.T, auth web.Middleware) *ambiente {
@@ -80,9 +82,11 @@ func novoAmbienteConfig(t *testing.T, auth web.Middleware, sessions *auth.Authen
 		Now:   func() time.Time { return agora },
 	}
 	srv := &web.Server{Store: s, Importer: imp, Queue: fila, Auth: auth, Sessions: sessions}
+	worker := &ingest.Service{Store: s, Now: func() time.Time { return agora }}
+	srv.Replanner = worker
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
-	return &ambiente{srv: srv, store: s, imp: imp, fila: fila, http: ts, root: filepath.Join(root, "data")}
+	return &ambiente{srv: srv, store: s, imp: imp, fila: fila, worker: worker, http: ts, root: filepath.Join(root, "data")}
 }
 
 func permitirTudo(h http.Handler) http.Handler { return h }

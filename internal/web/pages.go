@@ -105,10 +105,22 @@ func (s *Server) handlePlano(w http.ResponseWriter, r *http.Request) {
 		s.logger().Error("buscar plano ativo", "id", id, "erro", err)
 		plano = nil
 	}
+	var edicoes map[int64]views.ChunkEdicao
+	if plano != nil && (doc.Status == store.StatusReady || doc.Status == store.StatusPaused) {
+		edicoes, err = s.edicoesDoPlano(r.Context(), plano)
+		if err != nil {
+			s.logger().Error("montar edição de fronteiras", "id", id, "erro", err)
+			edicoes = nil
+		}
+	}
+	aviso, falha := mensagensDoEnvio(r)
 	s.render(w, r, http.StatusOK, views.Plano(views.DetalheProps{
-		Doc:    *doc,
-		Plano:  plano,
-		Avisos: avisosDoPlano(plano),
+		Doc:     *doc,
+		Plano:   plano,
+		Avisos:  avisosDoPlano(plano),
+		Edicoes: edicoes,
+		Aviso:   aviso,
+		Falha:   falha,
 	}))
 }
 
@@ -271,6 +283,14 @@ func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 		aviso = "Documento retomado: a leitura continua do trecho pendente."
 	case "reprocessando":
 		aviso = "Documento reenfileirado: a extração recomeça em segundo plano."
+	case "regenerado":
+		aviso = "Plano regenerado a partir do trecho pendente; os trechos já enviados foram preservados."
+	case "fundido":
+		aviso = "Trechos mesclados no plano ativo; os já enviados ficaram intactos."
+	case "dividido":
+		aviso = "Trecho dividido em dois no plano ativo."
+	case "movido":
+		aviso = "Blocos movidos entre trechos vizinhos do plano ativo."
 	}
 	switch q.Get("aviso") {
 	case "sem-trechos":
@@ -289,6 +309,16 @@ func mensagensDoEnvio(r *http.Request) (aviso, falha string) {
 		aviso = "Retome o documento antes de reprocessar."
 	case "historico":
 		aviso = "Este documento já tem trechos entregues e não pode ser reextraído. Exclua e envie o arquivo de novo para gerar outro plano."
+	case "ritmo":
+		aviso = "Ritmo inválido: informe minutos por dia (1–600) ou dias de leitura (1–3650), conforme o modo escolhido."
+	case "sem-plano":
+		aviso = "Este documento ainda não tem plano ativo."
+	case "estado":
+		aviso = "O documento precisa estar pronto ou pausado para editar o plano."
+	case "nao-pendente":
+		aviso = "Só trechos pendentes podem ser editados; trechos já enviados são preservados."
+	case "fronteira":
+		aviso = "Fronteira inválida: o corte deixaria um trecho vazio, terminaria em título ou sairia do documento."
 	case "tempo":
 		falha = "O ntfy não respondeu a tempo."
 	case "falha":

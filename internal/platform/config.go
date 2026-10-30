@@ -35,6 +35,9 @@ type Config struct {
 // DBPath é o caminho do SQLite dentro do diretório de dados.
 func (c Config) DBPath() string { return filepath.Join(c.DataDir, "db", "app.db") }
 
+// BackupDir é o diretório dos backups gravados pelo app (pré-migração).
+func (c Config) BackupDir() string { return filepath.Join(c.DataDir, "backup") }
+
 // LoadEnv lê a configuração de getenv. Valores ausentes usam os padrões de
 // docs/operations.md; valores inválidos devolvem erro em vez de cair no
 // padrão silenciosamente.

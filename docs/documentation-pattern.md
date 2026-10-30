@@ -1,7 +1,7 @@
 ---
 title: Padrão de documentação
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-30
 ---
 
 # Padrão de documentação
@@ -67,6 +67,10 @@ Cada dúvida tem ID, impacto, status e prazo. Isso é gestão de risco explícit
 ### 10. `status` + `updated` no front matter
 
 Permite detectar documento obsoleto e medir frescor. É a base de *living documentation*.
+
+### 11. Leitura econômica e briefs de tarefa
+
+`AGENTS.md` impõe um orçamento de leitura (~10 mil tokens antes do código) e manda ler só a seção afetada. `docs/tasks/` guarda briefs de ~60 linhas por tarefa, com o contrato fechado e as dúvidas explícitas; o brief acelera a sessão do agente sem virar uma segunda fonte de verdade. Em conflito, o doc de área sempre vence.
 
 ## O que isso **não** é (e o que falta para ficar “com nome”)
 

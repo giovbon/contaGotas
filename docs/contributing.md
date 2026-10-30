@@ -1,7 +1,7 @@
 ---
 title: Contribuição
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-30
 ---
 
 # Contribuição
@@ -11,9 +11,10 @@ Regras para humanos e agentes de IA. O objetivo é manter o repositório previs�
 ## Antes de escrever código
 
 1. Leia [`context.md`](./context.md).
-2. Identifique o requisito (`RF-###`) ou a decisão (`ADR-####`) que a mudança atende.
-3. Se não existir, **pare**: crie/atualize o requisito e, se for decisão estrutural, um ADR.
-4. Verifique [`open-questions.md`](./open-questions.md): a dúvida já tem resposta?
+2. Leia o brief da tarefa em [`tasks/`](./tasks/README.md), se existir; senão, só a seção do doc de área.
+3. Identifique o requisito (`RF-###`) ou a decisão (`ADR-####`) que a mudança atende.
+4. Se não existir, **pare**: crie/atualize o requisito e, se for decisão estrutural, um ADR.
+5. Verifique [`open-questions.md`](./open-questions.md): a dúvida já tem resposta?
 
 ## Fluxo
 
@@ -155,3 +156,4 @@ Instruções específicas:
 6. **Registre decisões.** Se tomou uma decisão não documentada, ela precisa ir para um ADR ou `open-questions.md`.
 7. **Nunca apague histórico**: entradas de changelog e ADRs são append-only.
 8. **Idioma**: documentação e UI em pt-BR; código e identificadores em inglês.
+9. **Leitura econômica**: leia `context.md` + brief e só as seções citadas; não abra docs inteiros.

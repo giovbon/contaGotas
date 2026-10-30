@@ -13,7 +13,7 @@ templ avisosPlano(avisos []string) {
 	}
 }
 
-templ tabelaPlano(plano store.Plan) {
+templ tabelaPlano(plano store.Plan, edicoes map[int64]ChunkEdicao, editavel bool) {
 	<div class="tabela-rolagem">
 		<table class="tabela-plano">
 			<thead>
@@ -23,6 +23,9 @@ templ tabelaPlano(plano store.Plan) {
 					<th scope="col">Palavras</th>
 					<th scope="col">Tempo</th>
 					<th scope="col">Status</th>
+					if editavel {
+						<th scope="col">Fronteira</th>
+					}
 				</tr>
 			</thead>
 			<tbody>
@@ -34,12 +37,63 @@ templ tabelaPlano(plano store.Plan) {
 						<td>{ formatarDuracao(c.Seconds) }</td>
 						<td>
 							<span class="badge" data-status={ string(c.Status) }>{ rotuloChunk(c.Status) }</span>
+							if c.Oversized {
+								<span class="badge" data-status="oversized">acima do máximo</span>
+							}
 						</td>
+						if editavel {
+							<td>
+								if c.Status == store.ChunkPending {
+									@editorFronteira(c, edicoes[c.ID])
+								}
+							</td>
+						}
 					</tr>
 				}
 			</tbody>
 		</table>
 	</div>
+}
+
+templ editorFronteira(c store.Chunk, ed ChunkEdicao) {
+	<details class="editor-fronteira">
+		<summary>Editar</summary>
+		<p class="sub">Blocos { numero(ed.BlocoInicio) }–{ numero(ed.BlocoFim) }</p>
+		if ed.PodeJuntar {
+			<form method="post" action={ urlMesclarChunk(c.ID) }>
+				<button type="submit" class="botao secundario">Juntar com o próximo</button>
+			</form>
+		}
+		if len(ed.Fronteiras) > 0 {
+			<form method="post" action={ urlDividirChunk(c.ID) } class="form-fronteira">
+				<label for={ "dividir-" + numero64(c.ID) }>Dividir antes do bloco</label>
+				<select id={ "dividir-" + numero64(c.ID) } name="bloco">
+					for _, f := range ed.Fronteiras {
+						<option value={ numero(f.Bloco) }>{ numero(f.Bloco) } — { f.Rotulo }</option>
+					}
+				</select>
+				<button type="submit" class="botao secundario">Dividir</button>
+			</form>
+		}
+		if ed.MaxMoverProximo > 0 || ed.MaxMoverAnterior > 0 {
+			<form method="post" action={ urlMoverChunk(c.ID) } class="form-fronteira">
+				<label for={ "mover-" + numero64(c.ID) }>Mover blocos</label>
+				<input id={ "mover-" + numero64(c.ID) } type="number" name="blocos" min="1" max={ numero(maior(ed.MaxMoverAnterior, ed.MaxMoverProximo)) } value="1" inputmode="numeric"/>
+				<select name="direcao">
+					if ed.MaxMoverProximo > 0 {
+						<option value="next">do próximo para este</option>
+					}
+					if ed.MaxMoverAnterior > 0 {
+						<option value="prev">do anterior para este</option>
+					}
+				</select>
+				<button type="submit" class="botao secundario">Mover</button>
+			</form>
+		}
+		if !ed.PodeJuntar && len(ed.Fronteiras) == 0 && ed.MaxMoverProximo == 0 && ed.MaxMoverAnterior == 0 {
+			<p class="sub">Sem vizinho pendente para editar.</p>
+		}
+	</details>
 }
 
 templ Plano(props DetalheProps) {
@@ -77,8 +131,14 @@ templ Plano(props DetalheProps) {
 					<p class="sub">
 						{ numero(len(props.Plano.Chunks)) } trechos · prévia sem datas: a agenda entra com o agendador.
 					</p>
+					if props.Aviso != "" {
+						<p class="aviso" role="status">{ props.Aviso }</p>
+					}
+					if props.Falha != "" {
+						<p class="alerta" role="alert">{ props.Falha }</p>
+					}
 					@avisosPlano(props.Avisos)
-					@tabelaPlano(*props.Plano)
+					@tabelaPlano(*props.Plano, props.Edicoes, true)
 				}
 			</main>
 			@rodape()

@@ -1,7 +1,7 @@
 ---
 title: Segmentação
 status: ativo
-updated: 2026-10-28
+updated: 2026-10-30
 ---
 
 # Segmentação
@@ -200,9 +200,16 @@ Limites de sanidade (avisos, não erros):
 
 Os avisos são derivados por `Params.Warnings(target, chunks)`, uma função pura que não altera o plano nem o status. Aparecem como `# aviso:` no CLI, em “Ritmo inviável” no detalhe e no plano completo; o plano continua válido (RF-026).
 
-### Mudança de pacing
+### Regeneração a partir do cursor (RF-024)
 
-Ao alterar o ritmo com o documento em andamento, o sistema oferece **regenerar a partir do cursor**: os chunks já enviados ficam no plano antigo (`superseded`), e uma nova versão cobre de `first_block_id` do cursor até o fim, com o tempo restante. Nunca se reescreve chunk enviado.
+Implementada em 2026-10-30. `plan.GenerateFrom(blocos, params, inicio)` é a variante pura de `Generate` para o sufixo do documento:
+
+- o alvo é calculado sobre o **tempo restante** (em `finish_by_days`, `segundos restantes ÷ dias`; em `minutes_per_day`, os minutos escolhidos);
+- os índices dos chunks são absolutos no documento e a cobertura vai de `inicio` até o último bloco;
+- `section_path` e `starts_mid_section` derivam do documento inteiro, para breadcrumb e recap continuarem corretos quando o trecho começa no meio de uma seção;
+- `ValidateFrom` aplica as mesmas invariantes de `Validate` à cobertura parcial.
+
+`Plans.Replan` grava a nova versão e o novo ritmo do documento (`pacing_mode`, `pacing_minutes`/`pacing_days`) na **mesma transação**: o plano anterior vira `superseded` e seus chunks enviados permanecem intactos. A UI oferece a regeneração em documentos `ready`/`paused` com plano ativo e ao menos um chunk pendente; `min_fill`/`max_overshoot` são relidos dos padrões no momento da regeneração. O progresso exibido no leitor é o do plano ativo (o restante), não o do livro inteiro.
 
 ## Fronteiras e custos
 

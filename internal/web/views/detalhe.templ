@@ -113,7 +113,34 @@ templ Detalhe(props DetalheProps) {
 							<a class="botao secundario" href={ urlPlano(props.Doc.ID) }>Ver plano completo</a>
 						</div>
 						@avisosPlano(props.Avisos)
-						@tabelaPlano(*props.Plano)
+						@tabelaPlano(*props.Plano, nil, false)
+					</section>
+				}
+				if podeRegenerar(props.Doc, props.Plano) {
+					<section>
+						<h2>Ritmo de leitura</h2>
+						<p class="sub">Alterar o ritmo regenera o plano a partir do trecho pendente. Os trechos já enviados ficam no histórico e não são reenviados.</p>
+						<form method="post" action={ urlRegenerarPlano(props.Doc.ID) } class="form-ritmo">
+							<div class="grade-campos">
+								<div class="campo">
+									<label for="ritmo-modo">Modo</label>
+									<select id="ritmo-modo" name="modo">
+										<option value="minutes_per_day" selected?={ modoSelecionado(props.Doc.PacingMode, "minutes_per_day") }>Minutos por dia</option>
+										<option value="finish_by_days" selected?={ modoSelecionado(props.Doc.PacingMode, "finish_by_days") }>Terminar em N dias</option>
+									</select>
+								</div>
+								<div class="campo">
+									<label for="ritmo-minutos">Minutos por dia</label>
+									<input id="ritmo-minutos" type="number" name="minutos" min="1" max="600" inputmode="numeric" value={ minutosDoDoc(props.Doc) }/>
+								</div>
+								<div class="campo">
+									<label for="ritmo-dias">Dias de leitura</label>
+									<input id="ritmo-dias" type="number" name="dias" min="1" max="3650" inputmode="numeric" value={ diasDoDoc(props.Doc) }/>
+								</div>
+							</div>
+							<p class="sub">Preencha o campo do modo escolhido: minutos por dia ou dias de leitura.</p>
+							<button type="submit">Regenerar plano</button>
+						</form>
 					</section>
 				}
 			</main>

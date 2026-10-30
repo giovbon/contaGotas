@@ -130,7 +130,12 @@ func montar(ctx context.Context, cfg platform.Config, logger *slog.Logger) (*apl
 		return nil, err
 	}
 
-	st, err := store.Open(ctx, cfg.DBPath())
+	st, err := store.OpenWithOptions(ctx, cfg.DBPath(), store.Options{
+		BackupDir: cfg.BackupDir(),
+		OnBackup: func(caminho string) {
+			logger.Info("backup pré-migração gravado", "arquivo", caminho)
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +149,8 @@ func montar(ctx context.Context, cfg platform.Config, logger *slog.Logger) (*apl
 		logger.Warn("limpar temporários de upload", "erro", err)
 	}
 
-	fila := ingest.NewQueue(&ingest.Service{Store: st}, 0)
+	worker := &ingest.Service{Store: st}
+	fila := ingest.NewQueue(worker, 0)
 	imp.Queue = fila
 	fila.OnResult = func(documentID int64, res *ingest.Result, err error) {
 		if err != nil {
@@ -192,13 +198,14 @@ func montar(ctx context.Context, cfg platform.Config, logger *slog.Logger) (*apl
 		fila:     fila,
 		agenda:   agenda,
 		web: &web.Server{
-			Store:    st,
-			Importer: imp,
-			Queue:    fila,
-			Sessions: sessoes,
-			Sender:   agenda,
-			Links:    assinador,
-			Logger:   logger,
+			Store:     st,
+			Importer:  imp,
+			Queue:     fila,
+			Replanner: worker,
+			Sessions:  sessoes,
+			Sender:    agenda,
+			Links:     assinador,
+			Logger:    logger,
 		},
 	}, nil
 }

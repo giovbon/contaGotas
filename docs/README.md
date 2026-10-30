@@ -1,7 +1,7 @@
 ---
 title: Documentação do Reading Drip
 status: ativo
-updated: 2026-10-26
+updated: 2026-10-30
 ---
 
 # Reading Drip — documentação
@@ -36,25 +36,45 @@ Sistema self-hosted, single-binary, que transforma arquivos `.md`, `.pdf` e `.ep
 | [`roadmap.md`](./roadmap.md) | Fases, critérios de saída, status |
 | [`open-questions.md`](./open-questions.md) | Decisões pendentes com ID, impacto e bloqueio |
 | [`changelog.md`](./changelog.md) | Histórico incremental (append-only) |
+| [`tasks/`](./tasks/README.md) | Briefs curtos por tarefa (leitura econômica para agentes) |
 | [`adr/`](./adr/README.md) | Architecture Decision Records — uma decisão por arquivo |
 
 ---
 
-## Por onde começar
+## Leitura econômica (para agentes)
 
-**Agente de IA / novo desenvolvedor**
+O caminho padrão de uma tarefa é curto. **Não leia a documentação inteira.**
 
-1. [`context.md`](./context.md) (5 min)
-2. [`requirements.md`](./requirements.md) (escopo)
+1. [`context.md`](./context.md) — decisões, invariantes e estado.
+2. O brief da tarefa em [`tasks/`](./tasks/README.md), quando existir.
+3. Apenas a seção citada da área afetada (mapa abaixo).
+4. O requisito `RF-###` correspondente em [`requirements.md`](./requirements.md).
+5. O checklist final em [`contributing.md`](./contributing.md).
+
+| Tarefa | Leitura mínima |
+|---|---|
+| Núcleo / segmentação | [`segmentation.md`](./segmentation.md#parâmetros), [`reading-time.md`](./reading-time.md), [`testing.md`](./testing.md#golden-files) |
+| Extração | [`extraction.md`](./extraction.md), [`testing.md`](./testing.md#epub), [`testing.md`](./testing.md#pdf) |
+| Entrega / agenda | [`delivery-ntfy.md`](./delivery-ntfy.md), [`scheduling.md`](./scheduling.md), [`continuity.md`](./continuity.md) |
+| Web / UI | [`web-ui.md`](./web-ui.md#rotas) + a tela afetada, [`testing.md`](./testing.md#http) |
+| Store / dados | [`data-model.md`](./data-model.md#schema), [`data-model.md`](./data-model.md#migrações), [`testing.md`](./testing.md#store) |
+| Operação / deploy | [`operations.md`](./operations.md#imagem-dockerfile), [`operations.md`](./operations.md#compose-composeyaml), [`testing.md`](./testing.md#ci) |
+| Documentação | [`contributing.md`](./contributing.md), [`documentation-pattern.md`](./documentation-pattern.md) |
+
+Regras:
+
+- leia só a seção; `rg -n '^## |^### ' docs/<arquivo>.md` lista os títulos;
+- no [`changelog.md`](./changelog.md), leia apenas a entrada mais recente;
+- não carregue `testing.md`, `requirements.md`, `data-model.md` ou `web-ui.md` inteiros.
+
+## Trilha completa (onboarding e revisão de arquitetura)
+
+Só para entender o sistema de ponta a ponta:
+
+1. [`context.md`](./context.md)
+2. [`requirements.md`](./requirements.md)
 3. [`architecture.md`](./architecture.md) + [`data-model.md`](./data-model.md)
-4. O documento da área que vai mexer (tabela acima)
-5. [`contributing.md`](./contributing.md) (checklist antes de codar)
-
-**Vou implementar o núcleo** → [`segmentation.md`](./segmentation.md), [`reading-time.md`](./reading-time.md), [`extraction.md`](./extraction.md), [`testing.md`](./testing.md)
-
-**Vou implementar a entrega** → [`delivery-ntfy.md`](./delivery-ntfy.md), [`scheduling.md`](./scheduling.md), [`continuity.md`](./continuity.md)
-
-**Vou operar/deployar** → [`operations.md`](./operations.md), [`web-ui.md`](./web-ui.md)
+4. [`contributing.md`](./contributing.md)
 
 ---
 

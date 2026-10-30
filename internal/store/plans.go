@@ -88,13 +88,28 @@ type paramsJSON struct {
 // Create persiste um plano como ativo, substituindo o anterior em uma
 // transação. Os chunks usam os ids reais dos blocos do documento.
 func (r *Plans) Create(ctx context.Context, documentID int64, pl *plan.Plan, params plan.Params, agora time.Time) (*Plan, error) {
+	return r.criar(ctx, documentID, 0, pl, params, agora, false)
+}
+
+// Replan persiste uma nova versão que cobre de startBlock (índice do bloco no
+// documento) até o fim, e atualiza o ritmo do documento na mesma transação
+// (RF-024). As chunks já entregues ficam no plano anterior, que passa a
+// `superseded`; nada é reenviado.
+func (r *Plans) Replan(ctx context.Context, documentID int64, startBlock int, pl *plan.Plan, params plan.Params, agora time.Time) (*Plan, error) {
+	return r.criar(ctx, documentID, startBlock, pl, params, agora, true)
+}
+
+func (r *Plans) criar(ctx context.Context, documentID int64, startBlock int, pl *plan.Plan, params plan.Params, agora time.Time, atualizarRitmo bool) (*Plan, error) {
 	if pl == nil || len(pl.Chunks) == 0 {
 		return nil, errors.New("store: plano vazio")
 	}
 	if agora.IsZero() {
 		return nil, errors.New("store: plano sem created_at")
 	}
-	if err := validarCobertura(pl); err != nil {
+	if startBlock < 0 {
+		return nil, fmt.Errorf("store: início do plano negativo (%d)", startBlock)
+	}
+	if err := validarCobertura(pl, startBlock); err != nil {
 		return nil, err
 	}
 
@@ -105,8 +120,17 @@ func (r *Plans) Create(ctx context.Context, documentID int64, pl *plan.Plan, par
 	if len(blockIDs) == 0 {
 		return nil, fmt.Errorf("store: documento %d não tem blocos", documentID)
 	}
-	if err := validarLimites(pl, len(blockIDs)); err != nil {
+	if startBlock >= len(blockIDs) {
+		return nil, fmt.Errorf("store: início %d fora dos %d blocos do documento %d",
+			startBlock, len(blockIDs), documentID)
+	}
+	if err := validarLimites(pl, startBlock, len(blockIDs)); err != nil {
 		return nil, err
+	}
+	if atualizarRitmo {
+		if err := validarRitmo(params); err != nil {
+			return nil, err
+		}
 	}
 
 	paramsJSON, err := json.Marshal(paramsJSON{
@@ -128,6 +152,12 @@ func (r *Plans) Create(ctx context.Context, documentID int64, pl *plan.Plan, par
 		return nil, fmt.Errorf("store: iniciar plano: %w", err)
 	}
 	defer tx.Rollback()
+
+	if atualizarRitmo {
+		if err := atualizarPacing(ctx, tx, documentID, params, agora); err != nil {
+			return nil, err
+		}
+	}
 
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE plans SET status = 'superseded' WHERE document_id = ? AND status = 'active'`,
@@ -190,6 +220,47 @@ func (r *Plans) Create(ctx context.Context, documentID int64, pl *plan.Plan, par
 		Params:        params,
 		CreatedAt:     agora,
 	}, nil
+}
+
+// atualizarPacing grava o novo ritmo do documento dentro da transação do
+// replanejamento. Em finish_by_days os minutos anteriores são preservados; em
+// minutes_per_day, pacing_days volta a NULL.
+func atualizarPacing(ctx context.Context, tx *sql.Tx, documentID int64, params plan.Params, agora time.Time) error {
+	var (
+		q    string
+		args []any
+	)
+	if params.Mode == plan.ModeMinutesPerDay {
+		q = `UPDATE documents SET pacing_mode = ?, pacing_minutes = ?,
+			pacing_days = NULL, updated_at = ? WHERE id = ?`
+		args = []any{string(params.Mode), params.Minutes, formatarData(agora), documentID}
+	} else {
+		q = `UPDATE documents SET pacing_mode = ?, pacing_days = ?,
+			updated_at = ? WHERE id = ?`
+		args = []any{string(params.Mode), params.Days, formatarData(agora), documentID}
+	}
+	res, err := tx.ExecContext(ctx, q, args...)
+	if err != nil {
+		return fmt.Errorf("store: atualizar ritmo do documento %d: %w", documentID, err)
+	}
+	return exigirLinhaAfetada(res, "ritmo do documento")
+}
+
+// validarRitmo confere o modo e o valor de pacing antes de gravar no documento.
+func validarRitmo(p plan.Params) error {
+	switch p.Mode {
+	case plan.ModeMinutesPerDay:
+		if p.Minutes <= 0 {
+			return fmt.Errorf("store: minutes_per_day exige minutos > 0")
+		}
+	case plan.ModeFinishByDays:
+		if p.Days <= 0 {
+			return fmt.Errorf("store: finish_by_days exige dias > 0")
+		}
+	default:
+		return fmt.Errorf("store: modo de ritmo desconhecido %q", p.Mode)
+	}
+	return nil
 }
 
 // Active devolve o plano ativo do documento com os chunks, ou nil.
@@ -300,7 +371,11 @@ func minutesDoParams(pj paramsJSON, targetSeconds int) int {
 }
 
 func (r *Plans) chunksDoPlan(ctx context.Context, planID int64) ([]Chunk, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return listarChunksDoPlano(ctx, r.db, planID)
+}
+
+func listarChunksDoPlano(ctx context.Context, q consulta, planID int64) ([]Chunk, error) {
+	rows, err := q.QueryContext(ctx, `
 		SELECT id, plan_id, document_id, seq, first_block_id, last_block_id, first_hash, last_hash,
 		       section_path, starts_mid_section, ends_mid_section, oversized, words, seconds,
 		       target_seconds, status, sent_at, done_at
@@ -542,14 +617,15 @@ func (r *Plans) DiscardUndelivered(ctx context.Context, documentID int64) error 
 	return nil
 }
 
-// validarCobertura confere que os chunks começam no bloco 0 e são contíguos,
-// sem gap nem overlap (DB-02/DB-09), antes de tocar no banco.
-func validarCobertura(pl *plan.Plan) error {
+// validarCobertura confere que os chunks começam em início e são contíguos,
+// sem gap nem overlap (DB-02/DB-09), antes de tocar no banco. O primeiro chunk
+// precisa começar em `inicio` e o último precisa fechar o documento.
+func validarCobertura(pl *plan.Plan, inicio int) error {
 	for i, c := range pl.Chunks {
 		if c.Seq != i {
 			return fmt.Errorf("store: chunk %d com seq %d", i, c.Seq)
 		}
-		esperado := 0
+		esperado := inicio
 		if i > 0 {
 			esperado = pl.Chunks[i-1].LastBlock + 1
 		}
@@ -563,13 +639,19 @@ func validarCobertura(pl *plan.Plan) error {
 	return nil
 }
 
-// validarLimites confere que os índices de bloco existem no documento.
-func validarLimites(pl *plan.Plan, total int) error {
+// validarLimites confere que os índices de bloco existem no documento. Os
+// índices dos chunks são absolutos no documento (ver GenerateFrom).
+func validarLimites(pl *plan.Plan, inicio, total int) error {
+	limite := total
 	for _, c := range pl.Chunks {
-		if c.FirstBlock < 0 || c.LastBlock >= total || c.FirstBlock > c.LastBlock {
-			return fmt.Errorf("store: chunk %d referencia blocos %d..%d de %d",
-				c.Seq, c.FirstBlock, c.LastBlock, total)
+		if c.FirstBlock < inicio || c.LastBlock >= limite || c.FirstBlock > c.LastBlock {
+			return fmt.Errorf("store: chunk %d referencia blocos %d..%d de %d (início %d)",
+				c.Seq, c.FirstBlock, c.LastBlock, limite, inicio)
 		}
+	}
+	if ultimo := pl.Chunks[len(pl.Chunks)-1]; ultimo.LastBlock != limite-1 {
+		return fmt.Errorf("store: cobertura incompleta: termina no bloco %d, esperado %d",
+			ultimo.LastBlock, limite-1)
 	}
 	return nil
 }
